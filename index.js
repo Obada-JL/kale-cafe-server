@@ -68,6 +68,13 @@ app.delete("/api/deleteFood/:id", foodsController.deletefood);
 // imagesRoutes
 app.get("/api/getImages", imagesController.getImages);
 app.post("/api/addImage", upload.single("file"), imagesController.addImage);
+// imagesRoutes
+app.get("/api/getSpecialImages", imagesController.getImages);
+app.post(
+  "/api/addSpecialImage",
+  upload.single("file"),
+  imagesController.addImage
+);
 app.put(
   "/api/updateImage/:id",
   upload.single("file"),
