@@ -14,4 +14,4 @@ const specialImagesSchema = new mongoose.Schema({
     type: String,
   },
 });
-module.exports = mongoose.model("images", specialImagesSchema);
+module.exports = mongoose.model("special images", specialImagesSchema);
