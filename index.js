@@ -10,6 +10,7 @@ const dessertsController = require("./controllers/desserts-controller");
 const foodsController = require("./controllers/foods-controller");
 const drinksController = require("./controllers/drinks-controller");
 const imagesController = require("./controllers/images-controller");
+const SpecialImagesController = require("./controllers/special-images-controller");
 const app = express();
 const url = process.env.MONGO_URL;
 
@@ -69,17 +70,17 @@ app.delete("/api/deleteFood/:id", foodsController.deletefood);
 app.get("/api/getImages", imagesController.getImages);
 app.post("/api/addImage", upload.single("file"), imagesController.addImage);
 // imagesRoutes
-app.get("/api/getSpecialImages", imagesController.getImages);
+app.get("/api/getSpecialImages", SpecialImagesController.getSpecialImages);
 app.post(
   "/api/addSpecialImage",
   upload.single("file"),
-  imagesController.addImage
+  SpecialImagesController.addSpecialImage
 );
-app.put(
-  "/api/updateImage/:id",
-  upload.single("file"),
-  imagesController.updateImage
-);
+// app.put(
+//   "/api/updateImage/:id",
+//   upload.single("file"),
+//   imagesController.updateImage
+// );
 app.delete("/api/deleteImage/:id", imagesController.deleteImage);
 // 404 handler
 app.all("*", (req, res) => {
