@@ -1,4 +1,4 @@
-const Images = require("../models/specialImagesSchema");
+const Images = require("../models/special-images-model");
 
 const getSpecialImages = async (req, res) => {
   const getimage = await Images.find();
