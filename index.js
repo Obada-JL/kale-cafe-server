@@ -76,6 +76,10 @@ app.post(
   upload.single("file"),
   SpecialImagesController.addSpecialImage
 );
+app.delete(
+  "/api/deleteSpecialImage:id",
+  SpecialImagesController.deleteSpecialImage
+);
 // app.put(
 //   "/api/updateImage/:id",
 //   upload.single("file"),
