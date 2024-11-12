@@ -77,7 +77,7 @@ app.post(
   SpecialImagesController.addSpecialImage
 );
 app.delete(
-  "/api/deleteSpecialImage:id",
+  "/api/deleteSpecialImage/:id",
   SpecialImagesController.deleteSpecialImage
 );
 // app.put(
