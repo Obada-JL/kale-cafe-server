@@ -20,6 +20,7 @@ const addSpecialImage = async (req, res) => {
 };
 const deleteSpecialImage = async (req, res) => {
   const { id } = req.params;
+console.log(id);
   try {
     await Images.findByIdAndDelete(id);
     res.status(200).json({ message: "Image deleted successfuly" });
