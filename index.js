@@ -1,5 +1,7 @@
 require("dotenv").config();
 const express = require("express");
+const fs = require("fs");
+const https = require("https");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const path = require("path");
@@ -13,6 +15,28 @@ const imagesController = require("./controllers/images-controller");
 const SpecialImagesController = require("./controllers/special-images-controller");
 const app = express();
 const url = process.env.MONGO_URL;
+
+const options = {
+  key: fs.readFileSync("/etc/letsencrypt/live/kale-cafe.com/privkey.pem"),
+  cert: fs.readFileSync("/etc/letsencrypt/live/kale-cafe.com/cert.pem"),
+  ca: fs.readFileSync("/etc/letsencrypt/live/kale-cafe.com/chain.pem"),
+};
+
+// Create an HTTPS server with the SSL options
+https.createServer(options, app).listen(443, () => {
+  console.log("HTTPS server running on port 443");
+});
+
+// Optionally, redirect HTTP to HTTPS
+const http = require("http");
+http
+  .createServer((req, res) => {
+    res.writeHead(301, {
+      Location: "https://" + req.headers["host"] + req.url,
+    });
+    res.end();
+  })
+  .listen(80);
 
 const diskStorage = multer.diskStorage({
   destination: function (req, file, cb) {
