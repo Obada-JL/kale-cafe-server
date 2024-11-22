@@ -23,8 +23,8 @@ const options = {
 };
 
 // Create an HTTPS server with the SSL options
-https.createServer(options, app).listen(443, () => {
-  console.log("HTTPS server running on port 443");
+https.createServer(options, app).listen(444, () => {
+  console.log("HTTPS server running on port 444");
 });
 
 // Optionally, redirect HTTP to HTTPS
@@ -36,7 +36,7 @@ http
     });
     res.end();
   })
-  .listen(80);
+  .listen(83);
 
 const diskStorage = multer.diskStorage({
   destination: function (req, file, cb) {
