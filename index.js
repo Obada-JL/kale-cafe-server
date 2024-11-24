@@ -21,18 +21,10 @@ const options = {
   cert: fs.readFileSync("/etc/letsencrypt/live/kale-cafe.com/cert.pem"),
   ca: fs.readFileSync("/etc/letsencrypt/live/kale-cafe.com/chain.pem"),
 };
-const sslOptions = {
-  key: fs.readFileSync("/etc/letsencrypt/live/145.223.33.75/privkey.pem"),
-  cert: fs.readFileSync("/etc/letsencrypt/live/145.223.33.75/cert.pem"),
-  ca: fs.readFileSync("/etc/letsencrypt/live/145.223.33.75/chain.pem"),
-};
 
 // Create an HTTPS server with the SSL options
 https.createServer(options, app).listen(444, () => {
   console.log("HTTPS server running on port 444");
-});
-https.createServer(sslOptions, app).listen(5000, () => {
-  console.log("Secure server running at https://145.223.33.75:5000");
 });
 
 // Optionally, redirect HTTP to HTTPS
@@ -45,14 +37,6 @@ http
     res.end();
   })
   .listen(83);
-http
-  .createServer((req, res) => {
-    res.writeHead(301, { Location: `https://${req.headers.host}${req.url}` });
-    res.end();
-  })
-  .listen(80, () => {
-    console.log("HTTP to HTTPS redirect enabled");
-  });
 
 const diskStorage = multer.diskStorage({
   destination: function (req, file, cb) {
