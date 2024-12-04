@@ -11,6 +11,7 @@ const dessertsController = require("./controllers/desserts-controller");
 // const imagesController = require('./controllers/desserts-controller')
 const foodsController = require("./controllers/foods-controller");
 const drinksController = require("./controllers/drinks-controller");
+const hookahsController = require("./controllers/hookah-controller");
 const imagesController = require("./controllers/images-controller");
 const SpecialImagesController = require("./controllers/special-images-controller");
 const app = express();
@@ -90,6 +91,11 @@ app.get("/api/getFoods", foodsController.getfoods);
 app.post("/api/addFood", foodsController.addfoods);
 app.put("/api/updateFood/:id", foodsController.updatefood);
 app.delete("/api/deleteFood/:id", foodsController.deletefood);
+// hookahs routes
+app.get("/api/gethookahs", hookahsController.gethookahs);
+app.post("/api/addhookah", hookahsController.addhookahs);
+app.put("/api/updatehookah/:id", hookahsController.updatehookah);
+app.delete("/api/deletehookah/:id", hookahsController.deletehookah);
 // imagesRoutes
 app.get("/api/getImages", imagesController.getImages);
 app.post("/api/addImage", upload.single("file"), imagesController.addImage);
