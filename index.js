@@ -3,7 +3,6 @@ const express = require("express");
 const fs = require("fs");
 const https = require("https");
 const cors = require("cors");
-const sharp = require("sharp");
 const mongoose = require("mongoose");
 const path = require("path");
 const multer = require("multer");
@@ -63,7 +62,6 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ storage: diskStorage, fileFilter });
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-app.use("/optimized", express.static(path.join(__dirname, "optimized")));
 
 mongoose
   .connect(url, { useNewUrlParser: true, useUnifiedTopology: true })
@@ -112,20 +110,6 @@ app.delete(
   "/api/deleteSpecialImage/:id",
   SpecialImagesController.deleteSpecialImage
 );
-const originalPath = path.join(__dirname, "uploads", req.file.filename);
-const optimizedPath = path.join(
-  __dirname,
-  "optimized",
-  req.file.filename.replace(/\.[^/.]+$/, ".webp")
-);
-
-// Optimize image using sharp
-await sharp(originalPath)
-  .resize({ width: 800 }) // Resize to 800px width, maintaining aspect ratio
-  .webp({ quality: 75 }) // Convert to WebP with 75% quality
-  .toFile(optimizedPath);
-
-console.log("Image optimized and saved:", optimizedPath);
 // app.put(
 //   "/api/updateImage/:id",
 //   upload.single("file"),
