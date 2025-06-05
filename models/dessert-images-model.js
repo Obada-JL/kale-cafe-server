@@ -1,12 +1,12 @@
 const mongoose = require("mongoose");
 
-const dessertSchema = new mongoose.Schema({
+const dessertImagesSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
   },
-  price: {
-    type: Number,
+  imagePath: {
+    type: String,
     required: true,
   },
   category: {
@@ -14,7 +14,13 @@ const dessertSchema = new mongoose.Schema({
     ref: 'categories',
     required: true,
   },
-  description: {
+  originalName: {
+    type: String,
+  },
+  fileSize: {
+    type: Number,
+  },
+  mimeType: {
     type: String,
   },
   isActive: {
@@ -25,4 +31,4 @@ const dessertSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-module.exports = mongoose.model("desserts", dessertSchema);
+module.exports = mongoose.model("dessertImages", dessertImagesSchema); 

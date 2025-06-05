@@ -51,41 +51,41 @@ app.use(cors());
 app.use(express.json());
 
 // desserts routes
-app.get("/api/getDesserts", dessertsController.getDesserts);
-app.post("/api/addDessert", dessertsController.addDesserts);
-app.put("/api/updateDessert/:id", dessertsController.updateDessert);
-app.delete("/api/deleteDessert/:id", dessertsController.deleteDessert);
+app.get("http://api.kale-cafe.com/api/getDesserts", dessertsController.getDesserts);
+app.post("http://api.kale-cafe.com/api/addDessert", dessertsController.addDesserts);
+app.put("http://api.kale-cafe.com/api/updateDessert/:id", dessertsController.updateDessert);
+app.delete("http://api.kale-cafe.com/api/deleteDessert/:id", dessertsController.deleteDessert);
 // drinks routes
-app.get("/api/getDrinks", drinksController.getDrinks);
-app.post("/api/addDrink", drinksController.addDrinks);
-app.put("/api/updateDrink/:id", drinksController.updateDrink);
-app.delete("/api/deleteDrink/:id", drinksController.deleteDrink);
-app.get("/api/searchDrink", drinksController.SearchDrink);
+app.get("http://api.kale-cafe.com/api/getDrinks", drinksController.getDrinks);
+app.post("http://api.kale-cafe.com/api/addDrink", drinksController.addDrinks);
+app.put("http://api.kale-cafe.com/api/updateDrink/:id", drinksController.updateDrink);
+app.delete("http://api.kale-cafe.com/api/deleteDrink/:id", drinksController.deleteDrink);
+app.get("http://api.kale-cafe.com/api/searchDrink", drinksController.SearchDrink);
 // foods routes
-app.get("/api/getFoods", foodsController.getfoods);
-app.post("/api/addFood", foodsController.addfoods);
-app.put("/api/updateFood/:id", foodsController.updatefood);
-app.delete("/api/deleteFood/:id", foodsController.deletefood);
+app.get("http://api.kale-cafe.com/api/getFoods", foodsController.getfoods);
+app.post("http://api.kale-cafe.com/api/addFood", foodsController.addfoods);
+app.put("http://api.kale-cafe.com/api/updateFood/:id", foodsController.updatefood);
+app.delete("http://api.kale-cafe.com/api/deleteFood/:id", foodsController.deletefood);
 // imagesRoutes
-app.get("/api/getImages", imagesController.getImages);
-app.post("/api/addImage", upload.single("file"), imagesController.addImage);
+app.get("http://api.kale-cafe.com/api/getImages", imagesController.getImages);
+app.post("http://api.kale-cafe.com/api/addImage", upload.single("file"), imagesController.addImage);
 // imagesRoutes
-app.get("/api/getSpecialImages", SpecialImagesController.getSpecialImages);
+app.get("http://api.kale-cafe.com/api/getSpecialImages", SpecialImagesController.getSpecialImages);
 app.post(
-  "/api/addSpecialImage",
+  "http://api.kale-cafe.com/api/addSpecialImage",
   upload.single("file"),
   SpecialImagesController.addSpecialImage
 );
 app.delete(
-  "/api/deleteSpecialImage/:id",
+  "http://api.kale-cafe.com/api/deleteSpecialImage/:id",
   SpecialImagesController.deleteSpecialImage
 );
 // app.put(
-//   "/api/updateImage/:id",
+//   "http://api.kale-cafe.com/api/updateImage/:id",
 //   upload.single("file"),
 //   imagesController.updateImage
 // );
-app.delete("/api/deleteImage/:id", imagesController.deleteImage);
+app.delete("http://api.kale-cafe.com/api/deleteImage/:id", imagesController.deleteImage);
 // 404 handler
 app.all("*", (req, res) => {
   res.status(404).json({ message: "Resource not found" });

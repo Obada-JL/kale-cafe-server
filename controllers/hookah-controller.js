@@ -1,48 +1,59 @@
-const Foods = require("../models/hookah-model");
+const Hookah = require("../models/hookah-model");
 
-const gethookahs = async (req, res) => {
-  const hookahs = await Foods.find();
-  res.json(hookahs);
+const getHookah = async (req, res) => {
+  try {
+    const hookah = await Hookah.find().populate('category');
+    res.json(hookah);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
-const addhookahs = async (req, res) => {
-  const { name, category, price } = req.body;
-  const newhookah = new Foods({
+
+const addHookah = async (req, res) => {
+  const { name, category, price, description } = req.body;
+  const newHookah = new Hookah({
     name: name,
     category: category,
     price: price,
+    description: description,
   });
   try {
-    await newhookah.save();
-    res.status(201).json({ data: { project: newhookah } });
+    await newHookah.save();
+    const populatedHookah = await Hookah.findById(newHookah._id).populate('category');
+    res.status(201).json({ data: { project: populatedHookah } });
   } catch (e) {
     return res.status(400).json({ error: e });
   }
 };
-const deletehookah = async (req, res) => {
+
+const deleteHookah = async (req, res) => {
   const { id } = req.params;
   try {
-    await Foods.findByIdAndDelete(id);
-    res.status(200).json({ message: "hookah deleted successfuly" });
+    await Hookah.findByIdAndDelete(id);
+    res.status(200).json({ message: "Hookah deleted successfully" });
   } catch (e) {
     res.status(400).json({ error: e });
   }
 };
-const updatehookah = async (req, res) => {
+
+const updateHookah = async (req, res) => {
   const { id } = req.params;
-  const { name, category, price } = req.body;
+  const { name, category, price, description } = req.body;
 
   const updateData = {
     name: name,
     category: category,
     price: price,
+    description: description,
   };
   try {
-    const updatedhookah = await Foods.findByIdAndUpdate(id, updateData, {
+    const updatedHookah = await Hookah.findByIdAndUpdate(id, updateData, {
       new: true,
-    });
-    res.status(200).json({ data: { project: updatedhookah } });
+    }).populate('category');
+    res.status(200).json({ data: { project: updatedHookah } });
   } catch (e) {
     res.status(400).json({ error: e });
   }
 };
-module.exports = { gethookahs, addhookahs, updatehookah, deletehookah };
+
+module.exports = { getHookah, addHookah, updateHookah, deleteHookah };
