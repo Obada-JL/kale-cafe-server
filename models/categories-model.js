@@ -5,6 +5,9 @@ const categorySchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  nameTr: {
+    type: String,
+  },
   type: {
     type: String,
     required: true,

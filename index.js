@@ -21,6 +21,8 @@ const hookahImagesController = require("./controllers/hookah-images-controller")
 const migrationController = require("./controllers/migration-controller");
 const categoriesController = require("./controllers/categories-controller");
 const userController = require("./controllers/user-controller");
+const tableController = require("./controllers/table-controller");
+const orderController = require("./controllers/order-controller");
 const { auth, adminAuth, managerAuth } = require("./middleware/auth");
 const app = express();
 const url = process.env.MONGO_URL;
@@ -154,6 +156,7 @@ app.post("/api/seedDefaultCategories", migrationController.seedCategories);
 app.post("/api/migrateToCategoryId", migrationController.migrateToCategory);
 app.post("/api/assignDefaultCategories", migrationController.assignDefaultCategories);
 app.post("/api/migrateProductCategories", migrationController.migrateProductCategories);
+app.post("/api/migrateTurkishNames", migrationController.migrateTurkishNames);
 // Special imagesRoutes
 app.get("/api/getSpecialImages", SpecialImagesController.getSpecialImages);
 app.post(
@@ -171,6 +174,22 @@ app.delete(
 //   imagesController.updateImage
 // );
 app.delete("/api/deleteImage/:id", imagesController.deleteImage);
+
+// Table routes
+app.get("/api/tables", auth, tableController.getTables);
+app.post("/api/tables", auth, tableController.addTable);
+app.put("/api/tables/:id", auth, tableController.updateTable);
+app.delete("/api/tables/:id", auth, tableController.deleteTable);
+
+// Order routes
+app.get("/api/orders", auth, orderController.getOrders);
+app.get("/api/orders/logs", auth, orderController.getOrderLogs);
+app.get("/api/orders/table/:tableId", auth, orderController.getOrdersByTable);
+app.post("/api/orders", auth, orderController.addOrder);
+app.put("/api/orders/:id", auth, orderController.updateOrder);
+app.put("/api/orders/:id/status", auth, orderController.updateOrderStatus);
+app.delete("/api/orders/:id", auth, orderController.deleteOrder);
+
 // 404 handler
 app.all("*", (req, res) => {
   res.status(404).json({ message: "Resource not found" });

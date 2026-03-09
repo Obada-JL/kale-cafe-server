@@ -136,6 +136,46 @@ const deleteCategory = async (req, res) => {
   }
 };
 
+const migrateTurkishNames = async (req, res) => {
+  try {
+    const translations = {
+      'المقبلات': 'Mezeler',
+      'المأكولات الغربية': 'Batı Mutfağı',
+      'المشاوي': 'Izgara',
+      'الوجبات الخفيفة': 'Hafif Yemekler',
+      'المأكولات الشرقية': 'Doğu Mutfağı',
+      'الكوكتيلات': 'Kokteyller',
+      'العصير الفريش': 'Taze Sıkılmış Meyve Suyu',
+      'الفواكه': 'Meyveler',
+      'الميلك شيك': 'Milkshake',
+      'المشروبات الباردة': 'Soğuk İçecekler',
+      'المشروبات الساخنة': 'Sıcak İçecekler',
+      'مشروبات الفروزن': 'Frozen İçecekler',
+      'مشروب الموهيتو البارد': 'Soğuk Mojito',
+      'المشروبات الغازية': 'Gazlı İçecekler',
+      'عصائر الديتوكس الباردة': 'Soğuk Detox İçecekleri',
+      'أصناف مميزة': 'Özel Ürünler',
+      'الحلويات': 'Tatlılar',
+      'حلويات فرنسية': 'Fransız Tatlıları',
+      'البوظة': 'Dondurma',
+      'الأراكيل': 'Nargile',
+    };
+
+    let updated = 0;
+    for (const [arName, trName] of Object.entries(translations)) {
+      const result = await Category.updateMany(
+        { name: arName },
+        { $set: { nameTr: trName } }
+      );
+      updated += result.modifiedCount;
+    }
+
+    res.status(200).json({ message: 'Turkish names migrated', updated });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getCategories,
   getFoodCategories,
@@ -146,4 +186,5 @@ module.exports = {
   updateCategory,
   deleteCategory,
   seedCategories,
+  migrateTurkishNames,
 }; 

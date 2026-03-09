@@ -5,6 +5,9 @@ const hookahSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  nameTr: {
+    type: String,
+  },
   price: {
     type: Number,
     required: true,

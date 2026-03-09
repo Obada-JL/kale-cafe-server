@@ -604,4 +604,139 @@ const migrateProductCategories = async (req, res) => {
   }
 };
 
-module.exports = { migrateImages, seedCategories, migrateToCategory, assignDefaultCategories, migrateProductCategories }; 
+const migrateTurkishNames = async (req, res) => {
+  try {
+    const categoryTranslations = {
+      'المقبلات': 'Mezeler',
+      'المأكولات الغربية': 'Batı Mutfağı',
+      'المشاوي': 'Izgara',
+      'الوجبات الخفيفة': 'Hafif Yemekler',
+      'المأكولات الشرقية': 'Doğu Mutfağı',
+      'الكوكتيلات': 'Kokteyller',
+      'العصير الفريش': 'Taze Sıkılmış Meyve Suyu',
+      'الفواكه': 'Meyveler',
+      'الميلك شيك': 'Milkshake',
+      'المشروبات الباردة': 'Soğuk İçecekler',
+      'المشروبات الساخنة': 'Sıcak İçecekler',
+      'مشروبات الفروزن': 'Frozen İçecekler',
+      'مشروب الموهيتو البارد': 'Soğuk Mojito',
+      'المشروبات الغازية': 'Gazlı İçecekler',
+      'عصائر الديتوكس الباردة': 'Soğuk Detox İçecekleri',
+      'أصناف مميزة': 'Özel Ürünler',
+      'الحلويات': 'Tatlılar',
+      'حلويات فرنسية': 'Fransız Tatlıları',
+      'البوظة': 'Dondurma',
+      'الأراكيل': 'Nargile',
+    };
+
+    const drinkTranslations = {
+      'ببسي': 'Pepsi', 'كوكاكولا': 'Coca Cola', 'فانتا': 'Fanta', 'سفن اب': '7 Up', 'سبرايت': 'Sprite',
+      'مندلين': 'Mandelin', 'ميرندا': 'Miranda', 'ريدبول': 'Red Bull', 'بايسون': 'Bison', 'جاست بور': 'Just Pour',
+      'جاك': 'Jack', 'صودا تفاح': 'Elma Soda', 'صودا ليمون': 'Limon Soda', 'صودا يوسفي': 'Mandalina Soda',
+      'صودا رمان': 'Nar Soda', 'صودا فواكه': 'Meyve Soda', 'صودا سادة': 'Sade Soda', 'بربيكانو': 'Barbican',
+      'اولوداغ': 'Uludağ', 'أوريو': 'Oreo', 'فريز': 'Çilek', 'شوكولا': 'Çikolata', 'مارشميلو و شوكولا': 'Marshmallow ve Çikolata',
+      'كراميل': 'Karamel', 'فانيل': 'Vanilya', 'لوتس': 'Lotus', 'بسكويت': 'Bisküvi', 'موز': 'Muz',
+      'فواكه': 'Meyve', 'جوز الهند': 'Hindistan Cevizi', 'سنيكرز': 'Snickers', 'كيندر': 'Kinder',
+      'عنتاب فستق': 'Antep Fıstığı', 'كيت كات': 'Kit Kat', 'كوكتيل': 'Kokteyl', 'تمر و حليب': 'Hurma ve Süt',
+      'مانغو': 'Mango', 'باونتي': 'Bounty', 'موكا فرابيه': 'Mocha Frappe', 'كراميل فرابيه': 'Karamel Frappe',
+      'برتقال': 'Portakal', 'ليمون': 'Limon', 'كيوي': 'Kivi', 'جزر': 'Havuç', 'رمان': 'Nar', 'تفاح': 'Elma',
+      'مانجو': 'Mango', 'أناناس': 'Ananas', 'جبس': 'Greyfurt', 'بطيخ': 'Karpuz', 'كرز': 'Kiraz', 'عنب': 'Üzüm',
+      'توت': 'Böğürtlen', 'كريفون': 'Greyfurt', 'دراق': 'Şeftali', 'ليمون و برتقال': 'Limon ve Portakal',
+      'أناناس و برتقال': 'Ananas ve Portakal', 'أناناس و تفاح': 'Ananas ve Elma', 'جزر و برتقال': 'Havuç ve Portakal',
+      'عصير فواكه مشكلة': 'Karışık Meyve Suyu', 'مشمش': 'Kayısı', 'نعناع': 'Nane', 'توت أسود': 'Böğürtlen',
+      'إمبراطور القلعة': 'Kale İmparatoru', 'كوكتيل القلعة': 'Kale Kokteyli', 'موهيتو القلعة': 'Kale Mojito',
+      'خلطة القلعة الباردة': 'Kale Soğuk Karışımı', 'خلطة القلعة الساخنة': 'Kale Sıcak Karışımı', 'قهوة القلعة': 'Kale Kahvesi',
+      'موز-حليب': 'Muz-Süt', 'موز-حليب-تفاح': 'Muz-Süt-Elma', 'موز-حليب-فريز': 'Muz-Süt-Çilek',
+      'موز-حليب-عسل-مكسرات': 'Muz-Süt-Bal-Kuruyemiş', 'موز-حليب-افوكادو': 'Muz-Süt-Avokado',
+      'موز-حليب-عسل-مكسرات-قشطة-أفوكادو': 'Muz-Süt-Bal-Kuruyemiş-Kaymak-Avokado',
+      'فواكه بالحليب': 'Sütlü Meyve', 'فواكه بالعصير': 'Meyveli Suyu', 'فواكه-مكسرات-عسل': 'Meyve-Kuruyemiş-Bal',
+      'فواكه-افوكادو-عسل-مكسرات': 'Meyve-Avokado-Bal-Kuruyemiş', 'كوكتيل الامبراطور': 'İmparator Kokteyli',
+      'كوكتيل فروتيلا': 'Frutella Kokteyli', 'كوكتيل تشيز كيك': 'Cheesecake Kokteyli',
+      'موز-حليب-تمر-فستق حلبي': 'Muz-Süt-Hurma-Antep Fıstığı', 'كوكتيل فواكه طبقات': 'Katmanlı Meyve Kokteyli',
+      'كوكتيل اناناس': 'Ananas Kokteyli', 'كوكتيل شقف': 'Şakaf Kokteyli', 'كوكتيل عوار القلب': 'Awar El-Kalp Kokteyli',
+      'كوكتيل نوتيلا': 'Nutella Kokteyli', 'ريدبول-نعناع': 'Red Bull-Nane', 'صودا-نعناع': 'Soda-Nane',
+      'سبرايت-نعناع': 'Sprite-Nane', 'جوز هند': 'Hindistan Cevizi', 'المانغو': 'Mango', 'خوخ': 'Şeftali',
+      'الموهيتو الأزرق': 'Mavi Mojito', 'الموهيتو الأحمر': 'Kırmızı Mojito', 'الموهيتو الأخضر': 'Yeşil Mojito',
+      'موهيتو الباشن فروت': 'Passion Fruit Mojito', 'عيران مثلج': 'Buzlu Ayran', 'بلو هاوي': 'Blue Hawaii',
+      'بلو كوكونات': 'Blue Coconut', 'سموزي مشكل': 'Karışık Smoothie', 'جمايكا': 'Jamaica', 'ليموناضا': 'Limonata',
+      'عصير الكولادا المنعش': 'Ferahlatıcı Colada', 'عصير بابايا المثلج': 'Buzlu Papaya Suyu', 'شوكولامو': 'Çikolamo',
+      'طماطم باردة': 'Soğuk Domates', 'بولو': 'Polo', 'عصير الدوم': 'Doum Suyu', 'عصير السلس': 'Salus Suyu',
+      'عصير الكابي': 'Kapi Suyu', 'ريدبول كوكتيل': 'Red Bull Kokteyl', 'كركدية باردة': 'Soğuk Hibiskus',
+      'ايس فانيلا كريم فرابتشينو': 'Buzlu Vanilya Kremalı Frappuccino',
+      'ايس قرابتشينو فراولة مع كريم': 'Buzlu Çilekli Kremalı Frappuccino',
+      'ايس تي بالنكهات" دراق ,خوخ ,توت ,أناناس ,كرز"': 'Buzlu Çay (Şeftali, Böğürtlen, Ananas, Kiraz)',
+      'قهوة باردة': 'Soğuk Kahve', 'ايس موكا': 'Buzlu Mocha', 'ايس لاتيه ': 'Buzlu Latte',
+      'ايس وايت موكا': 'Buzlu White Mocha', 'ايس لاتيه كراميل ماكياتو ': 'Buzlu Karamel Macchiato Latte',
+      'ايس كراميل ماكياتو': 'Buzlu Karamel Macchiato', 'ايس موكا فرابتشينو': 'Buzlu Mocha Frappuccino',
+      'ايس فرابتشينو اسبريسو': 'Buzlu Espresso Frappuccino', 'ايس فرابتشينو القهوة': 'Buzlu Kahve Frappuccino',
+      'ايس فرابتشينو دبل كراميل': 'Buzlu Double Karamel Frappuccino',
+      'ايس فرابتشينو موكا بالشوكولاته البيضا': 'Buzlu Beyaz Çikolatalı Mocha Frappuccino',
+      'ايس شيكن': 'Buzlu Shaken', 'ايش شيكن وايت موكا': 'Buzlu Shaken White Mocha',
+      'ايس شيكن كراميل': 'Buzlu Shaken Karamel', 'سبانش لاتيه': 'Spanish Latte',
+      'سبناش لاتيه مثلج': 'Buzlu Spanish Latte', 'سبانش لاتيه كراميل': 'Karamelli Spanish Latte',
+      'ايس فرابيه': 'Buzlu Frappe', 'ايس كبتشينو': 'Buzlu Cappuccino', 'ايس نسكافيه': 'Buzlu Nescafe',
+      'ايس شوكليت': 'Buzlu Çikolata', 'ايس كافيه فانيليا': 'Buzlu Vanilyalı Kahve',
+      'أناناس وكيوي وأفوكادو': 'Ananas, Kivi ve Avokado', 'قهوة تركية': 'Türk Kahvesi',
+      'قهوة عثمانية': 'Osmanlı Kahvesi', 'قهوة ديبك': 'Dibek Kahvesi', 'قهوة مناكيش': 'Menengic Kahvesi',
+      'اسبريسو': 'Espresso', 'اسبريسو دبل': 'Double Espresso', 'هوت أمريكانو': 'Americano',
+      'قهوة لونجو': 'Lungo Kahvesi', 'قهوة بريف ': 'Breve Kahvesi', 'لاتيه ساخنة': 'Sıcak Latte',
+      'موكا ساخنة': 'Sıcak Mocha', 'كافيه ماكياتو': 'Cafe Macchiato', 'لاتيه ماكياتو': 'Latte Macchiato',
+      'موكا لاتيه': 'Mocha Latte', 'لاتيه كراميل': 'Karamel Latte', 'موكا كراميل': 'Karamel Mocha',
+      'ماكياتو كراميل': 'Karamel Macchiato', 'موكاتشينو': 'Mocaccino', 'ماتشا لاتيه': 'Matcha Latte',
+      'سبانش لاتيه ساخنة': 'Sıcak Spanish Latte', 'فلات وايت': 'Flat White', 'قهوة بحليب': 'Sütlü Kahve',
+      'قهوة ريستريتو': 'Ristretto', 'كورتادو': 'Cortado', 'أوريو ساخنة': 'Sıcak Oreo', 'لوتس ساخنة': 'Sıcak Lotus',
+      'هوت شوكليت': 'Sıcak Çikolata', 'شوكو برالين': 'Çikolata Pralin', 'ميلو': 'Milo', 'سحلب': 'Salep',
+      'زنجبيل بالحليب': 'Sütlü Zencefil', 'شاي بالحليب': 'Sütlü Çay', 'كبتشينو بالحليب': 'Sütlü Cappuccino',
+      'نسكافيه 3+1 ': 'Nescafe 3+1', 'نسكافيه بالحليب': 'Sütlü Nescafe', 'حليب +عسل +مكسرات': 'Süt + Bal + Kuruyemiş',
+      'قهوة بالحليب': 'Sütlü Kahve', 'اسبريسو بالحليب': 'Sütlü Espresso', 'زهورات': 'Bitki Çayı',
+      'زعتر اخضر': 'Yeşil Kekik', 'بابونج': 'Papatya', 'شاي': 'Çay', 'شاي اخضر ': 'Yeşil Çay',
+      'شاي كركدية': 'Hibiskus Çayı', 'شاي القلعة': 'Kale Çayı', 'شاي+قرفة': 'Çay + Tarçın',
+      'شاي+نعناع': 'Çay + Nane', 'شاي +قرنفل': 'Çay + Karanfil', 'شاي الكركم بالزنجبيل': 'Zerdeçallı Zencefilli Çay',
+      'نعناع ساخن': 'Sıcak Nane', 'نعناع بالزعفران': 'Safranlı Nane', 'يانسون': 'Anason',
+      'يانسون و جوز الهند': 'Anason ve Hindistan Cevizi', 'قرفة ساخنة': 'Sıcak Tarçın',
+      'قرنفل ساخن': 'Sıcak Karanfil', 'ملّيسة': 'Melisa', 'متّة': 'Mate', 'زنجبيل': 'Zencefil',
+      'زنجبيل +عسل +لّيمون': 'Zencefil + Bal + Limon', 'زنجبيل بالزعفران': 'Safranlı Zencefil',
+      'كمون +ليمون': 'Kimyon + Limon', 'حمص الشام': 'Nohut Şerbeti', 'كراويه ساخنة': 'Sıcak Kimyon',
+      'ماء دافئ +عسل +جوز +بندق': 'Ilık Su + Bal + Ceviz + Fındık', 'برتقال ساخن': 'Sıcak Portakal',
+      'ليمون ساخن': 'Sıcak Limon', 'كيوي ساخن': 'Sıcak Kivi', 'أناناس ساخنة': 'Sıcak Ananas',
+      'فواكهة ساخنة': 'Sıcak Meyve', 'تشاركول ديتوكس': 'Charcoal Detox', 'اورانج ديتوكس': 'Orange Detox',
+      'ريد كولد بريس': 'Red Cold Press', 'جرين كولد بريس': 'Green Cold Press', 'صحن فواكه جاهز': 'Hazır Meyve Tabağı',
+      'صدر فواكه كامل': 'Tam Meyve Tabağı', 'سلطة فواكه مع القشطة': 'Kaymaklı Meyve Salatası',
+      'سلطة فواكه مع القشطة و الأفوكادو': 'Kaymaklı ve Avokadolu Meyve Salatası',
+      'سلطة فواكه بالنوتيلا': 'Nutellalı Meyve Salatası', 'سلطة فواكه كيت كات': 'Kit Katlı Meyve Salatası',
+      'سلطة فواكه مع سنيكرز': 'Snickersli Meyve Salatası', 'سلطة فواكه مع الأوريو': 'Oreolu Meyve Salatası',
+      'سلطة فواكه مع بوظة بدون كريمة': 'Kremasız Dondurmali Meyve Salatası',
+      'سلطة فواكه بالموز و الحليب': 'Muzlu ve Sütlü Meyve Salatası', 'سلطة فواكه استوائية': 'Tropikal Meyve Salatası',
+      'سلطة فواكه توتي فروتي': 'Tutti Frutti Meyve Salatası', 'سلطة فواكه بنانا سبليت': 'Banana Split Meyve Salatası',
+      'إمبراطور فواكه': 'Meyve İmparatoru',
+    };
+
+    let categoriesUpdated = 0;
+    for (const [arName, trName] of Object.entries(categoryTranslations)) {
+      const result = await Categories.updateMany(
+        { name: arName },
+        { $set: { nameTr: trName } }
+      );
+      categoriesUpdated += result.modifiedCount;
+    }
+
+    let drinksUpdated = 0;
+    for (const [arName, trName] of Object.entries(drinkTranslations)) {
+      const result = await Drinks.updateMany(
+        { name: arName },
+        { $set: { nameTr: trName } }
+      );
+      drinksUpdated += result.modifiedCount;
+    }
+
+    res.status(200).json({ 
+      message: 'Turkish names migrated successfully', 
+      categoriesUpdated, 
+      drinksUpdated 
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+module.exports = { migrateImages, seedCategories, migrateToCategory, assignDefaultCategories, migrateProductCategories, migrateTurkishNames };
