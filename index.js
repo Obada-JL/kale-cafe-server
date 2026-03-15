@@ -28,16 +28,16 @@ const { auth, adminAuth, managerAuth } = require("./middleware/auth");
 const app = express();
 const url = process.env.MONGO_URL;
 
-// const options = {
-//   key: fs.readFileSync("/etc/letsencrypt/live/kale-cafe.com/privkey.pem"),
-//   cert: fs.readFileSync("/etc/letsencrypt/live/kale-cafe.com/cert.pem"),
-//   ca: fs.readFileSync("/etc/letsencrypt/live/kale-cafe.com/chain.pem"),
-// };
+const options = {
+  key: fs.readFileSync("/etc/letsencrypt/live/kale-cafe.com/privkey.pem"),
+  cert: fs.readFileSync("/etc/letsencrypt/live/kale-cafe.com/cert.pem"),
+  ca: fs.readFileSync("/etc/letsencrypt/live/kale-cafe.com/chain.pem"),
+};
 
-// // Create an HTTPS server with the SSL options
-// https.createServer(options, app).listen(444, () => {
-//   console.log("HTTPS server running on port 444");
-// });
+// Create an HTTPS server with the SSL options
+https.createServer(options, app).listen(444, () => {
+  console.log("HTTPS server running on port 444");
+});
 
 // Optionally, redirect HTTP to HTTPS
 const http = require("http");
