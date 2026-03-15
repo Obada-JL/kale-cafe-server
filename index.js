@@ -23,20 +23,21 @@ const categoriesController = require("./controllers/categories-controller");
 const userController = require("./controllers/user-controller");
 const tableController = require("./controllers/table-controller");
 const orderController = require("./controllers/order-controller");
+const printerController = require("./controllers/printer-controller");
 const { auth, adminAuth, managerAuth } = require("./middleware/auth");
 const app = express();
 const url = process.env.MONGO_URL;
 
-const options = {
-  key: fs.readFileSync("/etc/letsencrypt/live/kale-cafe.com/privkey.pem"),
-  cert: fs.readFileSync("/etc/letsencrypt/live/kale-cafe.com/cert.pem"),
-  ca: fs.readFileSync("/etc/letsencrypt/live/kale-cafe.com/chain.pem"),
-};
+// const options = {
+//   key: fs.readFileSync("/etc/letsencrypt/live/kale-cafe.com/privkey.pem"),
+//   cert: fs.readFileSync("/etc/letsencrypt/live/kale-cafe.com/cert.pem"),
+//   ca: fs.readFileSync("/etc/letsencrypt/live/kale-cafe.com/chain.pem"),
+// };
 
-// Create an HTTPS server with the SSL options
-https.createServer(options, app).listen(444, () => {
-  console.log("HTTPS server running on port 444");
-});
+// // Create an HTTPS server with the SSL options
+// https.createServer(options, app).listen(444, () => {
+//   console.log("HTTPS server running on port 444");
+// });
 
 // Optionally, redirect HTTP to HTTPS
 const http = require("http");
@@ -189,6 +190,11 @@ app.post("/api/orders", auth, orderController.addOrder);
 app.put("/api/orders/:id", auth, orderController.updateOrder);
 app.put("/api/orders/:id/status", auth, orderController.updateOrderStatus);
 app.delete("/api/orders/:id", auth, orderController.deleteOrder);
+
+// Printer routes (no auth required for local agent polling)
+app.post("/api/print", printerController.queuePrint); // Dashboard sends this
+app.get("/api/print/pending", printerController.getPendingJob); // Local Agent polls this
+app.post("/api/print/ack/:id", printerController.acknowledgeJob); // Local Agent acks this
 
 // 404 handler
 app.all("*", (req, res) => {
