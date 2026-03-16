@@ -13,7 +13,7 @@ const generateToken = (userId) => {
 // Register new user (admin only)
 const register = async (req, res) => {
     try {
-        const { username, email, password, role } = req.body;
+        const { username, email, password, role, nameTr } = req.body;
 
         // Check if user already exists
         const existingUser = await User.findOne({
@@ -31,8 +31,15 @@ const register = async (req, res) => {
             username,
             email,
             password,
-            role: role || 'staff'
+            role: role || 'staff',
+            isCashier: req.body.isCashier || false,
+            nameTr: nameTr || ''
         });
+
+        if (user.isCashier) {
+            // Unassign other cashiers
+            await User.updateMany({ isCashier: true }, { isCashier: false });
+        }
 
         await user.save();
 
@@ -203,7 +210,7 @@ const getUsers = async (req, res) => {
 const updateUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const { username, email, role, isActive } = req.body;
+        const { username, email, role, isActive, isCashier, nameTr } = req.body;
 
         const user = await User.findById(id);
         if (!user) {
@@ -228,6 +235,16 @@ const updateUser = async (req, res) => {
 
         if (role) user.role = role;
         if (typeof isActive === 'boolean') user.isActive = isActive;
+        if (nameTr !== undefined) user.nameTr = nameTr;
+
+        // Unique cashier logic
+        if (typeof isCashier === 'boolean') {
+            if (isCashier) {
+                // If setting this user as cashier, unassign all other cashiers
+                await User.updateMany({ _id: { $ne: id } }, { isCashier: false });
+            }
+            user.isCashier = isCashier;
+        }
 
         await user.save();
 

@@ -10,9 +10,10 @@ const getDrinks = async (req, res) => {
 };
 
 const addDrinks = async (req, res) => {
-  const { name, category, price, description } = req.body;
+  const { name, nameTr, category, price, description } = req.body;
   const newDrink = new Drinks({
     name: name,
+    nameTr: nameTr,
     category: category,
     price: price,
     description: description,
@@ -38,10 +39,11 @@ const deleteDrink = async (req, res) => {
 
 const updateDrink = async (req, res) => {
   const { id } = req.params;
-  const { name, category, price, description } = req.body;
+  const { name, nameTr, category, price, description } = req.body;
 
   const updateData = {
     name,
+    nameTr,
     category,
     price,
     description,

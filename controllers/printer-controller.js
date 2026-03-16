@@ -8,9 +8,90 @@ const { createCanvas, loadImage } = require("canvas");
 const printQueue = [];
 let jobIdCounter = 1;
 
+const Counter = require("../models/counter-model");
+
+async function getNextSequence() {
+  const today = new Date().toLocaleDateString("en-CA");
+  let counter = await Counter.findOne({ name: "receipt_sequence" });
+
+  if (!counter) {
+    counter = new Counter({ name: "receipt_sequence", count: 1, date: today });
+    await counter.save();
+    return 1;
+  }
+
+  if (counter.date !== today) {
+    counter.date = today;
+    counter.count = 1;
+  } else {
+    counter.count++;
+  }
+
+  await counter.save();
+  return counter.count;
+}
+
 exports.queuePrint = async (req, res) => {
   const order = req.body;
+  const lang = req.body.lang === 'tr' ? 'tr' : 'ar'; // Default to Arabic
+  const isRTL = lang === 'ar';
   const tempFiles = [];
+
+  const translations = {
+    ar: {
+      cafeName: "مطعم و كافيه القلعة",
+      date: "التاريخ:",
+      orderType: "نوع الطلب:",
+      delivery: "سفري",
+      table: "طاولة",
+      payment: "الدفع:",
+      cash: "نقدي",
+      credit_card: "بطاقة بنك",
+      pending: "قيد الانتظار",
+      invoiceNo: "رقم الفاتورة:",
+      tableLabel: "الطاولة:",
+      total: "المجموع",
+      qty: "الكمية",
+      price: "السعر",
+      item: "الصنف",
+      totalLabel: "الإجمالي",
+      notes: "ملاحظات:",
+      cashier: "الكاشير:",
+      footer: ["شكراً لزيارتكم", "غازي عنتاب الشارع الايراني", "للتواصل والشكاوي "]
+    },
+    tr: {
+      cafeName: "KALE CAFE & RESTAURANT",
+      date: "Tarih:",
+      orderType: "Sipariş Tipi:",
+      delivery: "Paket",
+      table: "Masa",
+      payment: "Ödeme:",
+      cash: "Nakit",
+      credit_card: "Kredi Kartı",
+      pending: "Bekliyor",
+      invoiceNo: "Fiş No:",
+      tableLabel: "Masa:",
+      total: "Toplam",
+      qty: "Adet",
+      price: "Fiyat",
+      item: "Ürün",
+      totalLabel: "Genel Toplam:",
+      notes: "Notlar:",
+      cashier: "Kasiyer:",
+      footer: ["Ziyaretiniz İçin Teşekkürler", "Gaziantep İnönü Caddesi", "Şikayet ve Önerileriniz İçin"]
+    }
+  };
+
+  const t = translations[lang];
+
+  // Fetch cashier
+  const User = require("../models/user-model");
+  const cashier = await User.findOne({ isCashier: true });
+  let cashierName = cashier ? cashier.username : (lang === 'ar' ? 'غير محدد' : 'Belirtilmedi');
+  
+  if (lang === 'tr' && cashier && cashier.nameTr) {
+    cashierName = cashier.nameTr;
+  }
 
   try {
     // We use a dummy interface since we only need the buffer, not actual printing
@@ -22,9 +103,9 @@ exports.queuePrint = async (req, res) => {
       lineCharacter: "-"
     });
 
-    // Helper to print a single line of Arabic text as an image
-    async function printArabicText(text, options = {}) {
-      const { align = "center", isBold = false, height = 40, size = 26 } = options;
+    // Helper to print a single line of text as an image (handling Arabic/Turkish)
+    async function printText(text, options = {}) {
+      const { align = (isRTL ? "right" : "left"), isBold = false, height = 60, size = 34 } = options;
       const canvas = createCanvas(500, height);
       const ctx = canvas.getContext("2d");
       
@@ -58,26 +139,30 @@ exports.queuePrint = async (req, res) => {
     }
 
     // Helper to print a table row as an image
-    async function printArabicTableRow(price, item, qty, isBold = false) {
-      const canvas = createCanvas(500, 40);
+    async function printTableRow(col1, col2, col3, col4, isBold = false) {
+      const canvas = createCanvas(500, 60); 
       const ctx = canvas.getContext("2d");
       
       ctx.fillStyle = "white"; 
-      ctx.fillRect(0, 0, 500, 40);
+      ctx.fillRect(0, 0, 500, 60);
       
       ctx.fillStyle = "black"; 
-      ctx.font = `${isBold ? 'bold ' : ''}22px Arial`;
+      ctx.font = `${isBold ? 'bold ' : ''}28px Arial`;
       ctx.textBaseline = "middle";
       
-      // RTL Layout: Price (Left), Item (Right, bounded), Qty (Right edge)
-      ctx.textAlign = "left";
-      ctx.fillText(price, 0, 20);
-      
-      ctx.textAlign = "right";
-      ctx.fillText(item, 400, 20);
-      
-      ctx.textAlign = "right";
-      ctx.fillText(qty, 500, 20);
+      if (isRTL) {
+        // Total (Left), Qty, Price, Item (Right)
+        ctx.textAlign = "left"; ctx.fillText(col1, 0, 30); 
+        ctx.textAlign = "center"; ctx.fillText(col2, 150, 30); 
+        ctx.textAlign = "center"; ctx.fillText(col3, 280, 30); 
+        ctx.textAlign = "right"; ctx.fillText(col4, 500, 30); 
+      } else {
+        // Item (Left), Price, Qty, Total (Right)
+        ctx.textAlign = "left"; ctx.fillText(col1, 0, 30); 
+        ctx.textAlign = "center"; ctx.fillText(col2, 220, 30); 
+        ctx.textAlign = "center"; ctx.fillText(col3, 350, 30); 
+        ctx.textAlign = "right"; ctx.fillText(col4, 500, 30); 
+      }
       
       const imagePath = path.resolve(`./temp_img_${Date.now()}_${Math.floor(Math.random()*10000)}.png`);
       fs.writeFileSync(imagePath, canvas.toBuffer("image/png"));
@@ -91,19 +176,25 @@ exports.queuePrint = async (req, res) => {
 
     // Logo
     try {
-      const baseDir = path.resolve(__dirname, '..'); // Logo goes in root of server
+      const baseDir = path.resolve(__dirname, '..'); 
       const img = await loadImage(path.resolve(baseDir, 'Logo.png'));
-      const maxWidth = 500; 
+      const maxWidth = 200; 
       const scale = Math.min(maxWidth / img.width, 1); 
       const newWidth = img.width * scale;
       const newHeight = img.height * scale;
 
-      const logoCanvas = createCanvas(500, newHeight); 
+      const logoCanvas = createCanvas(500, newHeight + 60); 
       const logoCtx = logoCanvas.getContext('2d');
       logoCtx.fillStyle = "white"; 
-      logoCtx.fillRect(0, 0, 500, newHeight);
+      logoCtx.fillRect(0, 0, 500, newHeight + 60);
+      
       const xOffset = (500 - newWidth) / 2;
       logoCtx.drawImage(img, xOffset, 0, newWidth, newHeight);
+
+      logoCtx.fillStyle = "black";
+      logoCtx.font = "bold 34px Arial"; 
+      logoCtx.textAlign = "center";
+      logoCtx.fillText(t.cafeName, 250, newHeight + 40);
 
       const logoPath = path.resolve(`./temp_logo_${Date.now()}.png`);
       fs.writeFileSync(logoPath, logoCanvas.toBuffer("image/png"));
@@ -113,47 +204,101 @@ exports.queuePrint = async (req, res) => {
       await printer.printImage(logoPath);
     } catch(err) {
       console.log("Could not load logo:", err.message);
-      await printArabicText("كالي كافيه", { size: 40, isBold: true, height: 60 });
+      await printText(t.cafeName, { size: 44, isBold: true, height: 70 });
     }
     
     printer.drawLine();
 
-    const tableTxt = `الطاولة: ${order.table?.number || order.table || "?"}`;
-    await printArabicText(tableTxt, { align: "right" });
+    const date = new Date(order.createdAt || Date.now());
+    const dateStr = lang === 'ar' 
+      ? date.toLocaleDateString("ar-SA") + " " + date.toLocaleTimeString("ar-SA")
+      : date.toLocaleDateString("tr-TR") + " " + date.toLocaleTimeString("tr-TR");
+    
+    await printText(`${t.date} ${dateStr}`, { size: 28 });
+    await printText(`${t.cashier} ${cashierName}`, { size: 28 });
+    
+    // Order Type & Payment Method
+    const typeTxt = order.orderType === 'delivery' ? t.delivery : t.table;
+    const payMap = { cash: t.cash, credit_card: t.credit_card, pending: t.pending };
+    const payTxt = payMap[order.paymentMethod] || t.pending;
+    
+    await printText(`${t.orderType} ${typeTxt} | ${t.payment} ${payTxt}`, { size: 28, height: 40 });
     printer.drawLine();
 
-    const date = new Date(order.createdAt || Date.now());
-    const dateTxt = `التاريخ: ${date.toLocaleDateString("ar-SA")} ${date.toLocaleTimeString("ar-SA")}`;
-    await printArabicText(dateTxt, { align: "right" });
+    // Table Line: Seq & Qty and Table Number
+    const sequence = await getNextSequence();
+    const tableNum = order.table?.number || order.table || "?";
+    
+    const headerCanvas = createCanvas(500, 60);
+    const hCtx = headerCanvas.getContext("2d");
+    hCtx.fillStyle = "white"; hCtx.fillRect(0, 0, 500, 60);
+    hCtx.fillStyle = "black"; hCtx.textBaseline = "middle";
+    hCtx.font = "bold 30px Arial";
+    
+    if (isRTL) {
+      hCtx.textAlign = "left"; hCtx.fillText(`${t.invoiceNo} ${sequence}`, 0, 30);
+      hCtx.textAlign = "right"; hCtx.fillText(order.orderType === 'delivery' ? t.delivery : `${t.tableLabel} ${tableNum}`, 500, 30);
+    } else {
+      hCtx.textAlign = "left"; hCtx.fillText(order.orderType === 'delivery' ? t.delivery : `${t.tableLabel} ${tableNum}`, 0, 30);
+      hCtx.textAlign = "right"; hCtx.fillText(`${t.invoiceNo} ${sequence}`, 500, 30);
+    }
+
+    const headerPath = path.resolve(`./temp_head_${Date.now()}.png`);
+    fs.writeFileSync(headerPath, headerCanvas.toBuffer("image/png"));
+    tempFiles.push(headerPath);
+    printer.alignLeft();
+    await printer.printImage(headerPath);
+    
     printer.drawLine();
 
     // Table Header
-    await printArabicTableRow("السعر", "الصنف", "الكمية", true);
+    if (isRTL) {
+      await printTableRow(t.total, t.qty, t.price, t.item, true);
+    } else {
+      await printTableRow(t.item, t.price, t.qty, t.total, true);
+    }
     printer.drawLine();
 
     // Items
     if (order.items && order.items.length > 0) {
       for (const item of order.items) {
-        const priceStr = (item.price * item.quantity).toLocaleString();
-        const nameStr = item.name.substring(0, 25);
+        const totalStr = (item.price * item.quantity).toLocaleString();
         const qtyStr = String(item.quantity);
-        await printArabicTableRow(priceStr, nameStr, qtyStr);
+        const priceStr = item.price.toLocaleString();
+        
+        let nameStr = "";
+        if (lang === 'tr') {
+          nameStr = (item.nameTr || item.name || item.category || "").substring(0, 25);
+        } else {
+          nameStr = (item.category || item.name || "").substring(0, 25);
+        }
+        
+        if (isRTL) {
+          await printTableRow(totalStr, qtyStr, priceStr, nameStr);
+        } else {
+          await printTableRow(nameStr, priceStr, qtyStr, totalStr);
+        }
       }
     }
     printer.drawLine();
 
     // Notes
     if (order.notes) {
-      await printArabicText(`ملاحظات: ${order.notes}`, { align: "right" });
+      await printText(`${t.notes} ${order.notes}`);
       printer.drawLine();
     }
 
     // Total
-    const totalTxt = `الإجمالي: ${(order.totalAmount || 0).toLocaleString()} TL`;
-    await printArabicText(totalTxt, { align: "left", size: 30, isBold: true, height: 50 });
+    const totalTxt = isRTL 
+      ? `  ${(order.totalAmount || 0).toLocaleString()}TL :${t.totalLabel}`
+      : `${t.totalLabel} ${(order.totalAmount || 0).toLocaleString()} TL`;
+    await printText(totalTxt, { align: isRTL ? "right" : "left", size: 36, isBold: true, height: 60 });
     
     printer.newLine();
-    await printArabicText("شكراً لزيارتكم!");
+    for (const msg of t.footer) {
+      await printText(msg, { size: msg.includes("+90") ? 22 : 28, align: "center" });
+    }
+    await printText("+90 535 506 66 97", { size: 22, align: "center" });
     printer.newLine();
     
     printer.cut(); 

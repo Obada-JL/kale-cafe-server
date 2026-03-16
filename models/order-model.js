@@ -5,6 +5,9 @@ const orderItemSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  nameTr: {
+    type: String,
+  },
   quantity: {
     type: Number,
     default: 1,
@@ -24,13 +27,23 @@ const orderSchema = new mongoose.Schema({
   table: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'tables',
-    required: true,
+    required: false, // Changed to false to support delivery/takeaway
   },
   items: [orderItemSchema],
   status: {
     type: String,
     enum: ['active', 'completed', 'cancelled'],
     default: 'active',
+  },
+  orderType: {
+    type: String,
+    enum: ['table', 'delivery'],
+    default: 'table',
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['cash', 'credit_card', 'pending'],
+    default: 'pending',
   },
   totalAmount: {
     type: Number,

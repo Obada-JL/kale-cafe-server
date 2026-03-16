@@ -10,9 +10,10 @@ const getHookah = async (req, res) => {
 };
 
 const addHookah = async (req, res) => {
-  const { name, category, price, description } = req.body;
+  const { name, nameTr, category, price, description } = req.body;
   const newHookah = new Hookah({
     name: name,
+    nameTr: nameTr,
     category: category,
     price: price,
     description: description,
@@ -38,10 +39,11 @@ const deleteHookah = async (req, res) => {
 
 const updateHookah = async (req, res) => {
   const { id } = req.params;
-  const { name, category, price, description } = req.body;
+  const { name, nameTr, category, price, description } = req.body;
 
   const updateData = {
     name: name,
+    nameTr: nameTr,
     category: category,
     price: price,
     description: description,

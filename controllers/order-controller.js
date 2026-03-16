@@ -25,15 +25,27 @@ const getOrdersByTable = async (req, res) => {
 };
 
 const addOrder = async (req, res) => {
-  const { table, items, notes, createdBy } = req.body;
+  const { table, items, notes, createdBy, orderType, paymentMethod } = req.body;
   try {
-    const newOrder = new Order({ table, items, notes, createdBy });
+    const newOrder = new Order({ 
+      table: orderType === 'delivery' ? null : table, 
+      items, 
+      notes, 
+      createdBy,
+      orderType: orderType || 'table',
+      paymentMethod: paymentMethod || 'pending'
+    });
     await newOrder.save();
 
-    // Set table status to occupied
-    await Table.findByIdAndUpdate(table, { status: 'occupied' });
+    // Set table status to occupied only if it's a table order
+    if (orderType !== 'delivery' && table) {
+      await Table.findByIdAndUpdate(table, { status: 'occupied' });
+    }
 
-    const populatedOrder = await Order.findById(newOrder._id).populate('table');
+    const populatedOrder = orderType !== 'delivery' && table 
+      ? await Order.findById(newOrder._id).populate('table')
+      : await Order.findById(newOrder._id);
+      
     res.status(201).json(populatedOrder);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -49,6 +61,8 @@ const updateOrder = async (req, res) => {
     const updateData = {};
     if (items) { updateData.items = items; updateData.totalAmount = totalAmount; }
     if (notes !== undefined) updateData.notes = notes;
+    if (req.body.paymentMethod) updateData.paymentMethod = req.body.paymentMethod;
+    if (req.body.orderType) updateData.orderType = req.body.orderType;
 
     const updatedOrder = await Order.findByIdAndUpdate(id, updateData, { new: true }).populate('table');
     if (!updatedOrder) {
@@ -62,15 +76,18 @@ const updateOrder = async (req, res) => {
 
 const updateOrderStatus = async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status, paymentMethod } = req.body;
   try {
-    const order = await Order.findByIdAndUpdate(id, { status }, { new: true }).populate('table');
+    const updateData = { status };
+    if (paymentMethod) updateData.paymentMethod = paymentMethod;
+    
+    const order = await Order.findByIdAndUpdate(id, updateData, { new: true }).populate('table');
     if (!order) {
       return res.status(404).json({ message: "الطلب غير موجود" });
     }
 
     // If order is completed or cancelled, check if table has other active orders
-    if (status === 'completed' || status === 'cancelled') {
+    if ((status === 'completed' || status === 'cancelled') && order.table) {
       const activeOrders = await Order.find({ table: order.table._id, status: 'active' });
       if (activeOrders.length === 0) {
         await Table.findByIdAndUpdate(order.table._id, { status: 'available' });

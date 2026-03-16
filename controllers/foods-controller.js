@@ -10,9 +10,10 @@ const getfoods = async (req, res) => {
 };
 
 const addfoods = async (req, res) => {
-  const { name, category, price, description } = req.body;
+  const { name, nameTr, category, price, description } = req.body;
   const newfood = new Foods({
     name: name,
+    nameTr: nameTr,
     category: category,
     price: price,
     description: description,
@@ -38,10 +39,11 @@ const deletefood = async (req, res) => {
 
 const updatefood = async (req, res) => {
   const { id } = req.params;
-  const { name, category, price, description } = req.body;
+  const { name, nameTr, category, price, description } = req.body;
 
   const updateData = {
     name: name,
+    nameTr: nameTr,
     category: category,
     price: price,
     description: description,

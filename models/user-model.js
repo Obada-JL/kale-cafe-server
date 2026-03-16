@@ -32,6 +32,14 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    isCashier: {
+        type: Boolean,
+        default: false
+    },
+    nameTr: {
+        type: String,
+        trim: true
+    },
     lastLogin: {
         type: Date
     }
