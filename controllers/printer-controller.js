@@ -140,32 +140,74 @@ exports.queuePrint = async (req, res) => {
 
     // Helper to print a table row as an image
     async function printTableRow(col1, col2, col3, col4, isBold = false) {
-      const canvas = createCanvas(500, 60); 
+      // Logic for spacing and multi-line
+      // col1: Item (Non-RTL) or Total (RTL)
+      // col4: Total (Non-RTL) or Item (RTL)
+      
+      const fontSize = 28;
+      const rowHeight = 60;
+      const canvas = createCanvas(500, rowHeight);
       const ctx = canvas.getContext("2d");
-      
-      ctx.fillStyle = "white"; 
-      ctx.fillRect(0, 0, 500, 60);
-      
-      ctx.fillStyle = "black"; 
-      ctx.font = `${isBold ? 'bold ' : ''}28px Arial`;
+      ctx.font = `${isBold ? "bold " : ""}${fontSize}px Arial`;
       ctx.textBaseline = "middle";
       
-      if (isRTL) {
-        // Total (Left), Qty, Price, Item (Right)
-        ctx.textAlign = "left"; ctx.fillText(col1, 0, 30); 
-        ctx.textAlign = "center"; ctx.fillText(col2, 150, 30); 
-        ctx.textAlign = "center"; ctx.fillText(col3, 280, 30); 
-        ctx.textAlign = "right"; ctx.fillText(col4, 500, 30); 
+      const name = isRTL ? col4 : col1;
+      const nameWidth = ctx.measureText(name).width;
+      const nameLimit = 280; // available width for name on same line
+      
+      let finalCanvas = canvas;
+      let finalCtx = ctx;
+      let yOffset = rowHeight / 2;
+      
+      if (nameWidth > nameLimit && !isBold) {
+        // Create a taller canvas for two lines
+        const tallerCanvas = createCanvas(500, rowHeight * 2);
+        const tCtx = tallerCanvas.getContext("2d");
+        tCtx.font = ctx.font;
+        tCtx.textBaseline = "middle";
+        tCtx.fillStyle = "white";
+        tCtx.fillRect(0, 0, 500, rowHeight * 2);
+        
+        tCtx.fillStyle = "black";
+        // Line 1: Name (full width)
+        if (isRTL) {
+          tCtx.textAlign = "right"; tCtx.fillText(name, 500, rowHeight / 2);
+        } else {
+          tCtx.textAlign = "left"; tCtx.fillText(name, 0, rowHeight / 2);
+        }
+        
+        // Line 2: The rest of the fields
+        yOffset = rowHeight + (rowHeight / 2) - 10; // slightly tighter vertical space
+        if (isRTL) {
+          tCtx.textAlign = "left"; tCtx.fillText(col1, 0, yOffset); 
+          tCtx.textAlign = "right"; tCtx.fillText(col2, 120, yOffset); 
+          tCtx.textAlign = "right"; tCtx.fillText(col3, 220, yOffset);
+        } else {
+          tCtx.textAlign = "right"; tCtx.fillText(col2, 300, yOffset); 
+          tCtx.textAlign = "right"; tCtx.fillText(col3, 400, yOffset); 
+          tCtx.textAlign = "right"; tCtx.fillText(col4, 500, yOffset); 
+        }
+        
+        finalCanvas = tallerCanvas;
       } else {
-        // Item (Left), Price, Qty, Total (Right)
-        ctx.textAlign = "left"; ctx.fillText(col1, 0, 30); 
-        ctx.textAlign = "center"; ctx.fillText(col2, 220, 30); 
-        ctx.textAlign = "center"; ctx.fillText(col3, 350, 30); 
-        ctx.textAlign = "right"; ctx.fillText(col4, 500, 30); 
+        // Single line
+        ctx.fillStyle = "white"; ctx.fillRect(0, 0, 500, rowHeight);
+        ctx.fillStyle = "black";
+        if (isRTL) {
+          ctx.textAlign = "left"; ctx.fillText(col1, 0, rowHeight / 2); 
+          ctx.textAlign = "right"; ctx.fillText(col2, 120, rowHeight / 2); 
+          ctx.textAlign = "right"; ctx.fillText(col3, 220, rowHeight / 2); 
+          ctx.textAlign = "right"; ctx.fillText(col4, 500, rowHeight / 2); 
+        } else {
+          ctx.textAlign = "left"; ctx.fillText(col1, 0, rowHeight / 2); 
+          ctx.textAlign = "right"; ctx.fillText(col2, 300, rowHeight / 2); 
+          ctx.textAlign = "right"; ctx.fillText(col3, 400, rowHeight / 2); 
+          ctx.textAlign = "right"; ctx.fillText(col4, 500, rowHeight / 2); 
+        }
       }
       
       const imagePath = path.resolve(`./temp_img_${Date.now()}_${Math.floor(Math.random()*10000)}.png`);
-      fs.writeFileSync(imagePath, canvas.toBuffer("image/png"));
+      fs.writeFileSync(imagePath, finalCanvas.toBuffer("image/png"));
       tempFiles.push(imagePath);
       
       printer.alignLeft();
@@ -268,9 +310,11 @@ exports.queuePrint = async (req, res) => {
         
         let nameStr = "";
         if (lang === 'tr') {
-          nameStr = (item.nameTr || item.name || item.category || "").substring(0, 25);
+          // Use Turkish name if available, otherwise fallback to main name
+          nameStr = (item.nameTr || item.name || "").substring(0, 50);
         } else {
-          nameStr = (item.category || item.name || "").substring(0, 25);
+          // For Arabic/Default, always prefer item name
+          nameStr = (item.name || "").substring(0, 50);
         }
         
         if (isRTL) {
