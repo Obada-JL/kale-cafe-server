@@ -282,7 +282,7 @@ exports.queuePrint = async (req, res) => {
           fullProductName = (item.name || "");
         }
 
-        const nameLines = wrapText(fullProductName, 15);
+        const nameLines = wrapText(fullProductName, 13);
         
         for (let i = 0; i < nameLines.length; i++) {
           const currentNameLine = nameLines[i];
