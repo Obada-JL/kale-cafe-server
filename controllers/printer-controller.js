@@ -31,6 +31,15 @@ async function getNextSequence() {
   return counter.count;
 }
 
+const wrapText = (text, maxLength) => {
+  if (!text) return [""];
+  const result = [];
+  for (let i = 0; i < text.length; i += maxLength) {
+    result.push(text.substring(i, i + maxLength));
+  }
+  return result;
+};
+
 exports.queuePrint = async (req, res) => {
   const order = req.body;
   const lang = req.body.lang === 'tr' ? 'tr' : 'ar'; // Default to Arabic
@@ -266,19 +275,36 @@ exports.queuePrint = async (req, res) => {
         const qtyStr = String(item.quantity);
         const priceStr = item.price.toLocaleString();
         
-        let nameStr = "";
+        let fullProductName = "";
         if (lang === 'tr') {
-          // Use Turkish name if available, otherwise fallback to main name
-          nameStr = (item.nameTr || item.name || "").substring(0, 25);
+          fullProductName = (item.nameTr || item.name || "");
         } else {
-          // For Arabic/Default, always prefer item name
-          nameStr = (item.name || "").substring(0, 25);
+          fullProductName = (item.name || "");
         }
+
+        const nameLines = wrapText(fullProductName, 15);
         
-        if (isRTL) {
-          await printTableRow(totalStr, qtyStr, priceStr, nameStr);
-        } else {
-          await printTableRow(nameStr, priceStr, qtyStr, totalStr);
+        for (let i = 0; i < nameLines.length; i++) {
+          const currentNameLine = nameLines[i];
+          const isFirstLine = i === 0;
+
+          if (isRTL) {
+            // RTL: Total, Qty, Price, Item
+            await printTableRow(
+              isFirstLine ? totalStr : "", 
+              isFirstLine ? qtyStr : "", 
+              isFirstLine ? priceStr : "", 
+              currentNameLine
+            );
+          } else {
+            // LTR: Item, Price, Qty, Total
+            await printTableRow(
+              currentNameLine, 
+              isFirstLine ? priceStr : "", 
+              isFirstLine ? qtyStr : "", 
+              isFirstLine ? totalStr : ""
+            );
+          }
         }
       }
     }
