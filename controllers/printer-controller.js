@@ -173,16 +173,16 @@ exports.queuePrint = async (req, res) => {
       ctx.textBaseline = "middle";
       
       if (isRTL) {
-        // Total (Left), Qty, Price, Item (Right)
+        // Total (Left), Price, Qty, Item (Right)
         ctx.textAlign = "left"; ctx.fillText(col1, 0, 30); 
-        ctx.textAlign = "center"; ctx.fillText(col2, 150, 30); 
-        ctx.textAlign = "center"; ctx.fillText(col3, 280, 30); 
+        ctx.textAlign = "center"; ctx.fillText(col2, 110, 30); 
+        ctx.textAlign = "center"; ctx.fillText(col3, 220, 30); 
         ctx.textAlign = "right"; ctx.fillText(col4, 500, 30); 
       } else {
-        // Item (Left), Price, Qty, Total (Right)
+        // Item (Left), Qty, Price, Total (Right)
         ctx.textAlign = "left"; ctx.fillText(col1, 0, 30); 
-        ctx.textAlign = "center"; ctx.fillText(col2, 220, 30); 
-        ctx.textAlign = "center"; ctx.fillText(col3, 350, 30); 
+        ctx.textAlign = "center"; ctx.fillText(col2, 330, 30); 
+        ctx.textAlign = "right"; ctx.fillText(col3, 420, 30); 
         ctx.textAlign = "right"; ctx.fillText(col4, 500, 30); 
       }
       
@@ -275,9 +275,9 @@ exports.queuePrint = async (req, res) => {
 
     // Table Header
     if (isRTL) {
-      await printTableRow(t.total, t.qty, t.price, t.item, true);
+      await printTableRow(t.total, t.price, t.qty, t.item, true);
     } else {
-      await printTableRow(t.item, t.price, t.qty, t.total, true);
+      await printTableRow(t.item, t.qty, t.price, t.total, true);
     }
     printer.drawLine();
 
@@ -302,19 +302,19 @@ exports.queuePrint = async (req, res) => {
           const isFirstLine = i === 0;
 
           if (isRTL) {
-            // RTL: Total, Qty, Price, Item
+            // RTL: Total, Price, Qty, Item
             await printTableRow(
               isFirstLine ? totalStr : "", 
-              isFirstLine ? qtyStr : "", 
               isFirstLine ? priceStr : "", 
+              isFirstLine ? qtyStr : "", 
               currentNameLine
             );
           } else {
-            // LTR: Item, Price, Qty, Total
+            // LTR: Item, Qty, Price, Total
             await printTableRow(
               currentNameLine, 
-              isFirstLine ? priceStr : "", 
               isFirstLine ? qtyStr : "", 
+              isFirstLine ? priceStr : "", 
               isFirstLine ? totalStr : ""
             );
           }
