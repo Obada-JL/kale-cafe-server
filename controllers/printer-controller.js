@@ -175,8 +175,8 @@ exports.queuePrint = async (req, res) => {
       if (isRTL) {
         // Total (Left), Price, Qty, Item (Right)
         ctx.textAlign = "left"; ctx.fillText(col1, 0, 30); 
-        ctx.textAlign = "center"; ctx.fillText(col2, 110, 30); 
-        ctx.textAlign = "center"; ctx.fillText(col3, 220, 30); 
+        ctx.textAlign = "center"; ctx.fillText(col2, 230, 30); 
+        ctx.textAlign = "center"; ctx.fillText(col3, 350, 30); 
         ctx.textAlign = "right"; ctx.fillText(col4, 500, 30); 
       } else {
         // Item (Left), Qty, Price, Total (Right)
