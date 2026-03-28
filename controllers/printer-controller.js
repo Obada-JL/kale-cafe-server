@@ -33,11 +33,24 @@ async function getNextSequence() {
 
 const wrapText = (text, maxLength) => {
   if (!text) return [""];
-  const result = [];
-  for (let i = 0; i < text.length; i += maxLength) {
-    result.push(text.substring(i, i + maxLength));
+  const words = text.split(/\s+/);
+  const lines = [];
+  let currentLine = "";
+
+  for (const word of words) {
+    if (currentLine.length === 0) {
+      currentLine = word;
+    } else if ((currentLine + " " + word).length <= maxLength) {
+      currentLine += " " + word;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
   }
-  return result;
+  if (currentLine.length > 0) {
+    lines.push(currentLine);
+  }
+  return lines.length > 0 ? lines : [""];
 };
 
 exports.queuePrint = async (req, res) => {
@@ -282,7 +295,7 @@ exports.queuePrint = async (req, res) => {
           fullProductName = (item.name || "");
         }
 
-        const nameLines = wrapText(fullProductName, 13);
+        const nameLines = wrapText(fullProductName, 10);
         
         for (let i = 0; i < nameLines.length; i++) {
           const currentNameLine = nameLines[i];
