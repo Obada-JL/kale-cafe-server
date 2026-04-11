@@ -513,25 +513,53 @@ function sendBufferToBarPrinter(buffer) {
     const client = new net.Socket();
     let handled = false;
 
+    console.log(`[BarPrinter] 🚀 Attempting connection to ${BAR_PRINTER_IP}:${BAR_PRINTER_PORT}...`);
+    console.log(`[BarPrinter] 📦 Buffer size: ${buffer.length} bytes`);
+
     const done = (err) => {
       if (handled) return;
       handled = true;
+      
+      if (err) {
+        console.error(`[BarPrinter] ❌ Job failed: ${err.message}`);
+      } else {
+        console.log(`[BarPrinter] ✅ Job completed successfully.`);
+      }
+
       client.removeAllListeners();
       client.destroy();
+      
       if (err) reject(err);
       else resolve();
     };
 
     client.setTimeout(10000);
-    client.on("timeout", () => done(new Error("Bar printer connection timeout")));
-    client.on("error", (err) => done(new Error(`Bar printer connection error: ${err.message}`)));
+    client.on("timeout", () => {
+      console.warn(`[BarPrinter] ⏳ Timeout reached (10s)`);
+      done(new Error("Bar printer connection timeout"));
+    });
+
+    client.on("error", (err) => {
+      console.error(`[BarPrinter] 📡 Socket error:`, err);
+      done(new Error(`Bar printer connection error: ${err.message}`));
+    });
 
     client.connect(BAR_PRINTER_PORT, BAR_PRINTER_IP, () => {
-      console.log(`🔌 Connected to bar printer at ${BAR_PRINTER_IP}:${BAR_PRINTER_PORT}`);
+      console.log(`[BarPrinter] 🔌 Connected to printer.`);
+      
+      console.log(`[BarPrinter] ✍️  Writing buffer...`);
       client.write(buffer, () => {
-        // Wait a small bit to ensure buffer is flushed
-        setTimeout(() => done(), 500);
+        console.log(`[BarPrinter] 📤 Buffer flushed to socket.`);
+        // Wait a small bit to ensure buffer is flushed by the OS/hardware
+        setTimeout(() => {
+          console.log(`[BarPrinter] 🏁 Closing connection.`);
+          done();
+        }, 500);
       });
+    });
+
+    client.on("close", (hadError) => {
+      console.log(`[BarPrinter] 🚪 Socket closed ${hadError ? "due to error" : "normally"}`);
     });
   });
 }
@@ -598,7 +626,7 @@ exports.handleBarPrint = async (order, lang = 'ar', previousItems = null) => {
 
   // Nothing to print for bar
   if (itemsToPrint.length === 0) {
-    return res.json({ status: "skipped", message: "No new items to print for bar" });
+    return { status: "skipped", message: "No new items to print for bar" };
   }
 
   try {
