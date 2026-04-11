@@ -56,11 +56,11 @@ const addOrder = async (req, res) => {
       : await Order.findById(newOrder._id);
       
     // Automated bar print (failure-tolerant)
-    try {
-      await printerController.handleBarPrint(populatedOrder, 'ar');
-    } catch (printError) {
-      console.error("Automated bar print failed:", printError.message);
-    }
+    // try {
+    //   await printerController.handleBarPrint(populatedOrder, 'ar');
+    // } catch (printError) {
+    //   console.error("Automated bar print failed:", printError.message);
+    // }
 
     res.status(201).json(populatedOrder);
   } catch (error) {
@@ -99,11 +99,11 @@ const updateOrder = async (req, res) => {
     }
 
     // Automated bar print (failure-tolerant)
-    try {
-      await printerController.handleBarPrint(updatedOrder, 'ar', currentOrder.items);
-    } catch (printError) {
-      console.error("Automated bar print failed (update):", printError.message);
-    }
+    // try {
+    //   await printerController.handleBarPrint(updatedOrder, 'ar', currentOrder.items);
+    // } catch (printError) {
+    //   console.error("Automated bar print failed (update):", printError.message);
+    // }
 
     res.json(updatedOrder);
   } catch (error) {
