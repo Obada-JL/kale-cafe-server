@@ -2,7 +2,12 @@ const ThermalPrinter = require("node-thermal-printer").printer;
 const PrinterTypes = require("node-thermal-printer").types;
 const fs = require("fs");
 const path = require("path");
+const net = require("net");
 const { createCanvas, loadImage } = require("canvas");
+
+// Bar printer TCP/IP configuration
+const BAR_PRINTER_IP = "192.168.1.100";
+const BAR_PRINTER_PORT = 9100;
 
 // ===== IN-MEMORY PRINT JOB QUEUE =====
 const printQueue = [];
@@ -119,7 +124,7 @@ exports.queuePrint = async (req, res) => {
     // We use a dummy interface since we only need the buffer, not actual printing
     let printer = new ThermalPrinter({
       type: PrinterTypes.EPSON,
-      interface: "/dev/null",
+      interface: "NUL", // Windows equivalent of /dev/null
       characterSet: "PC437_USA",
       removeSpecialCharacters: false,
       lineCharacter: "-"
@@ -329,7 +334,33 @@ exports.queuePrint = async (req, res) => {
       printer.drawLine();
     }
 
-    // Total
+    // Subtotal, Discount, Tax and Total
+    const subtotal = order.items?.reduce((sum, item) => sum + (item.price * item.quantity), 0) || 0;
+    
+    // Subtotal line
+    const subtotalTxt = isRTL 
+      ? `  ${subtotal.toLocaleString()}TL :${lang === 'ar' ? 'المجموع الفرعي' : 'Ara Toplam'}`
+      : `${lang === 'ar' ? 'المجموع الفرعي' : 'Ara Toplam'} ${subtotal.toLocaleString()} TL`;
+    await printText(subtotalTxt, { align: isRTL ? "right" : "left", size: 28 });
+
+    // Tax line
+    if (order.tax > 0) {
+      const taxTxt = isRTL 
+        ? `  ${order.tax.toLocaleString()}TL :+ ${lang === 'ar' ? 'الضريبة (5%)' : 'KDV (%5)'}`
+        : `+ ${lang === 'ar' ? 'الضريبة (5%)' : 'KDV (%5)'} ${order.tax.toLocaleString()} TL`;
+      await printText(taxTxt, { align: isRTL ? "right" : "left", size: 28 });
+    }
+
+    // Discount line
+    if (order.discount > 0) {
+      const discountTxt = isRTL 
+        ? `  ${order.discount.toLocaleString()}TL :- ${lang === 'ar' ? 'الخصم' : 'İndirim'}`
+        : `- ${lang === 'ar' ? 'الخصم' : 'İndirim'} ${order.discount.toLocaleString()} TL`;
+      await printText(discountTxt, { align: isRTL ? "right" : "left", size: 28 });
+    }
+
+    printer.drawLine();
+
     const totalTxt = isRTL 
       ? `  ${(order.totalAmount || 0).toLocaleString()}TL :${t.totalLabel}`
       : `${t.totalLabel} ${(order.totalAmount || 0).toLocaleString()} TL`;
@@ -341,7 +372,8 @@ exports.queuePrint = async (req, res) => {
     }
     await printText("+90 535 506 66 97", { size: 22, align: "center" });
     printer.newLine();
-    
+    printer.newLine();
+    printer.newLine();
     printer.cut(); 
 
     // ===== GET THE BUFFER & QUEUE IT =====
@@ -421,4 +453,270 @@ exports.getQueueStatus = (req, res) => {
     queueLength: printQueue.length,
     jobs: printQueue.map(j => ({ id: j.id, createdAt: j.createdAt, order: j.order }))
   });
+};
+
+// ===== HELPER: Send raw ESC/POS buffer to bar printer via TCP =====
+function sendBufferToBarPrinter(buffer) {
+  return new Promise((resolve, reject) => {
+    const client = new net.Socket();
+    let handled = false;
+
+    const done = (err) => {
+      if (handled) return;
+      handled = true;
+      client.removeAllListeners();
+      client.destroy();
+      if (err) reject(err);
+      else resolve();
+    };
+
+    client.setTimeout(10000);
+    client.on("timeout", () => done(new Error("Bar printer connection timeout")));
+    client.on("error", (err) => done(new Error(`Bar printer connection error: ${err.message}`)));
+
+    client.connect(BAR_PRINTER_PORT, BAR_PRINTER_IP, () => {
+      console.log(`🔌 Connected to bar printer at ${BAR_PRINTER_IP}:${BAR_PRINTER_PORT}`);
+      client.write(buffer, () => {
+        // Wait a small bit to ensure buffer is flushed
+        setTimeout(() => done(), 500);
+      });
+    });
+  });
+}
+
+// ===== POST /api/print/bar — Print simplified receipt to bar printer via TCP =====
+exports.queueBarPrint = async (req, res) => {
+  const order = req.body;
+  const lang = req.body.lang === 'tr' ? 'tr' : 'ar';
+  const isRTL = lang === 'ar';
+  const previousItems = req.body.previousItems || null;
+  const tempFiles = [];
+
+  const barTranslations = {
+    ar: {
+      barTitle: "طلب بار",
+      delivery: "سفري",
+      tableLabel: "الطاولة:",
+      qty: "الكمية",
+      item: "الصنف",
+      notes: "ملاحظات:",
+      editLabel: "** أصناف جديدة **",
+    },
+    tr: {
+      barTitle: "BAR SİPARİŞ",
+      delivery: "Paket",
+      tableLabel: "Masa:",
+      qty: "Adet",
+      item: "Ürün",
+      notes: "Notlar:",
+      editLabel: "** YENİ ÜRÜNLER **",
+    }
+  };
+
+  const t = barTranslations[lang];
+
+  // Compute items to print (delta if editing)
+  let itemsToPrint = order.items || [];
+  if (previousItems && Array.isArray(previousItems)) {
+    const deltaItems = [];
+    for (const item of itemsToPrint) {
+      const prevItem = previousItems.find(p => p.name === item.name);
+      if (!prevItem) {
+        // Completely new item
+        deltaItems.push(item);
+      } else if (item.quantity > prevItem.quantity) {
+        // Quantity increased — only print the delta
+        deltaItems.push({ ...item, quantity: item.quantity - prevItem.quantity });
+      }
+    }
+    itemsToPrint = deltaItems;
+  }
+
+  // Nothing to print for bar
+  if (itemsToPrint.length === 0) {
+    return res.json({ status: "skipped", message: "No new items to print for bar" });
+  }
+
+  try {
+    let printer = new ThermalPrinter({
+      type: PrinterTypes.EPSON,
+      interface: "NUL", // Windows equivalent of /dev/null
+      characterSet: "PC437_USA",
+      removeSpecialCharacters: false,
+      lineCharacter: "-"
+    });
+
+    // Helper to print a single line of text as an image
+    async function printText(text, options = {}) {
+      const { align = (isRTL ? "right" : "left"), isBold = false, height = 60, size = 34 } = options;
+      const canvas = createCanvas(500, height);
+      const ctx = canvas.getContext("2d");
+
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, 500, height);
+
+      ctx.fillStyle = "black";
+      ctx.font = `${isBold ? 'bold ' : ''}${size}px Arial`;
+      ctx.textBaseline = "middle";
+
+      let x = 250;
+      if (align === "right") { ctx.textAlign = "right"; x = 500; }
+      else if (align === "left") { ctx.textAlign = "left"; x = 0; }
+      else { ctx.textAlign = "center"; }
+
+      ctx.fillText(text, x, height / 2);
+
+      const imagePath = path.resolve(`./temp_bar_${Date.now()}_${Math.floor(Math.random() * 10000)}.png`);
+      fs.writeFileSync(imagePath, canvas.toBuffer("image/png"));
+      tempFiles.push(imagePath);
+
+      if (align === "center") printer.alignCenter();
+      else if (align === "right") printer.alignRight();
+      else printer.alignLeft();
+
+      await printer.printImage(imagePath);
+    }
+
+    // Helper to print a bar item row (Item + Qty only, no price)
+    async function printBarRow(itemName, qtyStr, isBold = false) {
+      const canvas = createCanvas(500, 60);
+      const ctx = canvas.getContext("2d");
+
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, 500, 60);
+
+      ctx.fillStyle = "black";
+      ctx.font = `${isBold ? 'bold ' : ''}30px Arial`;
+      ctx.textBaseline = "middle";
+
+      if (isRTL) {
+        ctx.textAlign = "left"; ctx.fillText(qtyStr, 0, 30);
+        ctx.textAlign = "right"; ctx.fillText(itemName, 500, 30);
+      } else {
+        ctx.textAlign = "left"; ctx.fillText(itemName, 0, 30);
+        ctx.textAlign = "right"; ctx.fillText(qtyStr, 500, 30);
+      }
+
+      const imagePath = path.resolve(`./temp_bar_${Date.now()}_${Math.floor(Math.random() * 10000)}.png`);
+      fs.writeFileSync(imagePath, canvas.toBuffer("image/png"));
+      tempFiles.push(imagePath);
+
+      printer.alignLeft();
+      await printer.printImage(imagePath);
+    }
+
+    // Helper to print a separator line as an image
+    async function printSeparator() {
+      const canvas = createCanvas(500, 20);
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, 500, 20);
+      ctx.strokeStyle = "black";
+      ctx.beginPath();
+      ctx.moveTo(0, 10);
+      ctx.lineTo(500, 10);
+      ctx.stroke();
+      
+      const imagePath = path.resolve(`./temp_bar_line_${Date.now()}_${Math.floor(Math.random() * 10000)}.png`);
+      fs.writeFileSync(imagePath, canvas.toBuffer("image/png"));
+      tempFiles.push(imagePath);
+      
+      printer.alignLeft();
+      await printer.printImage(imagePath);
+    }
+
+    // ===== BUILD BAR RECEIPT =====
+    // Initialize printer (ESC @)
+    printer.raw(Buffer.from([0x1b, 0x40]));
+    // Exit Chinese mode (FS .) if the printer is in it, to avoid misinterpreting binary data
+    printer.raw(Buffer.from([0x1c, 0x2e]));
+
+    // Title
+    // await printText(t.barTitle, { align: "center", size: 44, isBold: true, height: 70 });
+    // await printSeparator();
+
+    // Edit indicator
+    if (previousItems) {
+      await printText(t.editLabel, { align: "center", size: 30, isBold: true, height: 50 });
+      await printSeparator();
+    }
+
+    // Table number / Delivery
+    const tableNum = order.table?.number || order.table || "?";
+    const tableText = order.orderType === 'delivery' ? t.delivery : `${t.tableLabel} ${tableNum}`;
+    await printText(tableText, { align: "center", size: 36, isBold: true, height: 60 });
+
+    // Date/time
+    const date = new Date(order.createdAt || Date.now());
+    const dateStr = lang === 'ar'
+      ? date.toLocaleDateString("ar-SA") + " " + date.toLocaleTimeString("ar-SA")
+      : date.toLocaleDateString("tr-TR") + " " + date.toLocaleTimeString("tr-TR");
+    await printText(dateStr, { align: "center", size: 24, height: 40 });
+
+    await printSeparator();
+
+    // Column headers
+    if (isRTL) {
+      await printBarRow(t.item, t.qty, true);
+    } else {
+      await printBarRow(t.item, t.qty, true);
+    }
+    await printSeparator();
+
+    // Items
+    for (const item of itemsToPrint) {
+      const qtyStr = `x${item.quantity}`;
+      let productName = "";
+      if (lang === 'tr') {
+        productName = item.nameTr || item.name || "";
+      } else {
+        productName = item.name || "";
+      }
+
+      const nameLines = wrapText(productName, 18);
+      for (let i = 0; i < nameLines.length; i++) {
+        await printBarRow(nameLines[i], i === 0 ? qtyStr : "");
+      }
+
+      // Per-item notes
+      if (item.notes) {
+        await printText(`  → ${item.notes}`, { size: 22, height: 35 });
+      }
+    }
+
+    await printSeparator();
+
+    // General order notes
+    if (order.notes) {
+      await printText(`${t.notes} ${order.notes}`, { size: 26, height: 45 });
+      await printSeparator();
+    }
+
+    printer.newLine();
+    printer.newLine();
+    printer.newLine();
+    printer.cut();
+
+    // ===== SEND TO BAR PRINTER VIA TCP =====
+    const buffer = printer.getBuffer();
+
+    // Clean up temp files
+    tempFiles.forEach(file => {
+      if (fs.existsSync(file)) fs.unlinkSync(file);
+    });
+
+    await sendBufferToBarPrinter(buffer);
+
+    console.log(`🍺 Bar receipt sent to ${BAR_PRINTER_IP}:${BAR_PRINTER_PORT} (${buffer.length} bytes, ${itemsToPrint.length} items)`);
+    return res.json({ status: "printed", itemCount: itemsToPrint.length });
+
+  } catch (e) {
+    console.error("Bar receipt error:", e);
+    tempFiles.forEach(file => {
+      if (fs.existsSync(file)) fs.unlinkSync(file);
+    });
+    if (!res.headersSent) {
+      return res.status(500).json({ status: "error", message: e.message });
+    }
+  }
 };

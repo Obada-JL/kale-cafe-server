@@ -195,6 +195,7 @@ app.delete("/api/orders/:id", auth, orderController.deleteOrder);
 app.post("/api/print", printerController.queuePrint); // Dashboard sends this
 app.get("/api/print/pending", printerController.getPendingJob); // Local Agent polls this
 app.post("/api/print/ack/:id", printerController.acknowledgeJob); // Local Agent acks this
+app.post("/api/print/bar", printerController.queueBarPrint); // Bar printer via TCP/IP
 
 // 404 handler
 app.all("*", (req, res) => {

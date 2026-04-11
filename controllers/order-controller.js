@@ -25,15 +25,23 @@ const getOrdersByTable = async (req, res) => {
 };
 
 const addOrder = async (req, res) => {
-  const { table, items, notes, createdBy, orderType, paymentMethod } = req.body;
+  const { table, items, notes, createdBy, orderType, paymentMethod, discount, tableNumber } = req.body;
   try {
+    const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const taxValue = paymentMethod === 'credit_card' ? subtotal * 0.05 : 0;
+
     const newOrder = new Order({ 
-      table: orderType === 'delivery' ? null : table, 
+      table: orderType !== 'delivery' ? table : null, 
+      tableNumber: tableNumber || null,
       items, 
       notes, 
       createdBy,
-      orderType: orderType || 'table',
-      paymentMethod: paymentMethod || 'pending'
+      orderType,
+      paymentMethod,
+      subtotal,
+      discount: Number(discount) || 0,
+      tax: taxValue,
+      totalAmount: subtotal - (Number(discount) || 0) - taxValue,
     });
     await newOrder.save();
 
@@ -56,13 +64,26 @@ const updateOrder = async (req, res) => {
   const { id } = req.params;
   const { items, notes } = req.body;
   try {
-    // Recalculate total
-    const totalAmount = items ? items.reduce((sum, item) => sum + (item.price * item.quantity), 0) : undefined;
+    const currentOrder = await Order.findById(id);
+    if (!currentOrder) {
+      return res.status(404).json({ message: "الطلب غير موجود" });
+    }
+    const finalItems = items || currentOrder.items;
+    const finalPaymentMethod = req.body.paymentMethod || currentOrder.paymentMethod;
+    const subtotal = finalItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const discountValue = req.body.discount !== undefined ? Number(req.body.discount) : currentOrder.discount;
+    const taxValue = finalPaymentMethod === 'credit_card' ? subtotal * 0.05 : 0;
+    
     const updateData = {};
-    if (items) { updateData.items = items; updateData.totalAmount = totalAmount; }
+    if (items) updateData.items = items;
     if (notes !== undefined) updateData.notes = notes;
     if (req.body.paymentMethod) updateData.paymentMethod = req.body.paymentMethod;
     if (req.body.orderType) updateData.orderType = req.body.orderType;
+    if (req.body.tableNumber) updateData.tableNumber = req.body.tableNumber;
+    
+    updateData.discount = discountValue;
+    updateData.tax = taxValue;
+    updateData.totalAmount = subtotal - discountValue - taxValue;
 
     const updatedOrder = await Order.findByIdAndUpdate(id, updateData, { new: true }).populate('table');
     if (!updatedOrder) {
@@ -142,6 +163,11 @@ const getOrderLogs = async (req, res) => {
         toDate.setHours(23, 59, 59, 999);
         filter.createdAt.$lte = toDate;
       }
+    }
+
+    // Dish filter
+    if (req.query.dish) {
+      filter['items.name'] = { $regex: req.query.dish, $options: 'i' };
     }
 
     const [orders, total] = await Promise.all([

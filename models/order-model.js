@@ -29,6 +29,10 @@ const orderSchema = new mongoose.Schema({
     ref: 'tables',
     required: false, // Changed to false to support delivery/takeaway
   },
+  tableNumber: {
+    type: Number,
+    required: false,
+  },
   items: [orderItemSchema],
   status: {
     type: String,
@@ -44,6 +48,14 @@ const orderSchema = new mongoose.Schema({
     type: String,
     enum: ['cash', 'credit_card', 'pending'],
     default: 'pending',
+  },
+  discount: {
+    type: Number,
+    default: 0,
+  },
+  tax: {
+    type: Number,
+    default: 0,
   },
   totalAmount: {
     type: Number,
@@ -63,7 +75,8 @@ const orderSchema = new mongoose.Schema({
 
 // Auto-calculate totalAmount before saving
 orderSchema.pre('save', function(next) {
-  this.totalAmount = this.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = this.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  this.totalAmount = subtotal - (this.discount || 0) - (this.tax || 0);
   next();
 });
 

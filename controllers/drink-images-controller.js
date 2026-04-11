@@ -27,8 +27,8 @@ const addDrinkImage = async (req, res) => {
     mimeType: req.file.mimetype,
   });
   try {
-    await newImage.save();
-    res.status(201).json({ data: { image: newImage } });
+    const populatedImage = await DrinkImages.findById(newImage._id).populate('category');
+    res.status(201).json({ data: { image: populatedImage } });
   } catch (e) {
     return res.status(400).json({ error: e });
   }
