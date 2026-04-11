@@ -437,6 +437,7 @@ exports.handleReceiptPrint = async (order, lang = 'ar', cashierName = 'غير م
     printQueue.push({
       id: jobId,
       buffer: buffer,
+      printerType: "customer",
       createdAt: new Date().toISOString(),
       order: {
         table: order.table?.number || order.table,
@@ -477,6 +478,7 @@ exports.getPendingJob = (req, res) => {
     status: "pending",
     job: {
       id: job.id,
+      printerType: job.printerType,
       buffer: job.buffer.toString("base64"),
       createdAt: job.createdAt,
       order: job.order
@@ -503,7 +505,7 @@ exports.acknowledgeJob = (req, res) => {
 exports.getQueueStatus = (req, res) => {
   return res.json({
     queueLength: printQueue.length,
-    jobs: printQueue.map(j => ({ id: j.id, createdAt: j.createdAt, order: j.order }))
+    jobs: printQueue.map(j => ({ id: j.id, printerType: j.printerType, createdAt: j.createdAt, order: j.order }))
   });
 };
 
@@ -790,17 +792,29 @@ exports.handleBarPrint = async (order, lang = 'ar', previousItems = null) => {
     printer.cut();
 
     // ===== SEND TO BAR PRINTER VIA TCP =====
+    // ===== QUEUE BAR JOB FOR LOCAL AGENT =====
     const buffer = printer.getBuffer();
+    const jobId = jobIdCounter++;
+    
+    printQueue.push({
+      id: jobId,
+      buffer: buffer,
+      printerType: "bar",
+      createdAt: new Date().toISOString(),
+      order: {
+        table: order.table?.number || order.table,
+        itemCount: itemsToPrint.length
+      }
+    });
+
+    console.log(`✅ Bar Print job #${jobId} queued (${buffer.length} bytes, ${printQueue.length} in queue)`);
 
     // Clean up temp files
     tempFiles.forEach(file => {
       if (fs.existsSync(file)) fs.unlinkSync(file);
     });
 
-    await sendBufferToBarPrinter(buffer);
-
-    console.log(`🍺 Bar receipt sent to ${BAR_PRINTER_IP}:${BAR_PRINTER_PORT} (${buffer.length} bytes, ${itemsToPrint.length} items)`);
-    return { status: "printed", itemCount: itemsToPrint.length };
+    return { status: "queued", jobId, itemCount: itemsToPrint.length };
 
   } catch (e) {
     console.error("Bar receipt error:", e);
