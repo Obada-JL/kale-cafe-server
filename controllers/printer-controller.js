@@ -120,6 +120,60 @@ exports.queuePrint = async (req, res) => {
     cashierName = cashier.nameTr;
   }
 
+  return await exports.handleReceiptPrint(order, lang, cashierName);
+};
+
+exports.handleReceiptPrint = async (order, lang = 'ar', cashierName = 'غير محدد') => {
+  const isRTL = lang === 'ar';
+  const tempFiles = [];
+
+  const translations = {
+    ar: {
+      cafeName: "مطعم و كافيه القلعة",
+      date: "التاريخ:",
+      orderType: "نوع الطلب:",
+      delivery: "سفري",
+      table: "طاولة",
+      payment: "الدفع:",
+      cash: "نقدي",
+      credit_card: "بطاقة بنك",
+      pending: "قيد الانتظار",
+      invoiceNo: "رقم الفاتورة:",
+      tableLabel: "الطاولة:",
+      total: "المجموع",
+      qty: "الكمية",
+      price: "السعر",
+      item: "الصنف",
+      totalLabel: "الإجمالي",
+      notes: "ملاحظات:",
+      cashier: "الكاشير:",
+      footer: ["شكراً لزيارتكم", "غازي عنتاب الشارع الايراني", "للتواصل والشكاوي "]
+    },
+    tr: {
+      cafeName: "KALE CAFE & RESTAURANT",
+      date: "Tarih:",
+      orderType: "Sipariş Tipi:",
+      delivery: "Paket",
+      table: "Masa",
+      payment: "Ödeme:",
+      cash: "Nakit",
+      credit_card: "Kredi Kartı",
+      pending: "Bekliyor",
+      invoiceNo: "Fiş No:",
+      tableLabel: "Masa:",
+      total: "Toplam",
+      qty: "Adet",
+      price: "Fiyat",
+      item: "Ürün",
+      totalLabel: "Genel Toplam:",
+      notes: "Notlar:",
+      cashier: "Kasiyer:",
+      footer: ["Ziyaretiniz İçin Teşekkürler", "Gaziantep İnönü Caddesi", "Şikayet ve Önerileriniz İçin"]
+    }
+  };
+
+  const t = translations[lang];
+
   try {
     // We use a dummy interface since we only need the buffer, not actual printing
     let printer = new ThermalPrinter({
@@ -398,7 +452,7 @@ exports.queuePrint = async (req, res) => {
       if (fs.existsSync(file)) fs.unlinkSync(file);
     });
 
-    return res.json({ status: "queued", jobId });
+    return { status: "queued", jobId };
 
   } catch (e) {
     console.error("Receipt build error:", e);
@@ -406,9 +460,7 @@ exports.queuePrint = async (req, res) => {
     tempFiles.forEach(file => {
       if (fs.existsSync(file)) fs.unlinkSync(file);
     });
-    if (!res.headersSent) {
-      return res.status(500).json({ status: "error", message: e.message });
-    }
+    throw e;
   }
 };
 
@@ -488,8 +540,20 @@ function sendBufferToBarPrinter(buffer) {
 exports.queueBarPrint = async (req, res) => {
   const order = req.body;
   const lang = req.body.lang === 'tr' ? 'tr' : 'ar';
-  const isRTL = lang === 'ar';
   const previousItems = req.body.previousItems || null;
+  
+  try {
+    const result = await exports.handleBarPrint(order, lang, previousItems);
+    return res.json(result);
+  } catch (error) {
+    if (!res.headersSent) {
+      return res.status(500).json({ status: "error", message: error.message });
+    }
+  }
+};
+
+exports.handleBarPrint = async (order, lang = 'ar', previousItems = null) => {
+  const isRTL = lang === 'ar';
   const tempFiles = [];
 
   const barTranslations = {
@@ -708,15 +772,13 @@ exports.queueBarPrint = async (req, res) => {
     await sendBufferToBarPrinter(buffer);
 
     console.log(`🍺 Bar receipt sent to ${BAR_PRINTER_IP}:${BAR_PRINTER_PORT} (${buffer.length} bytes, ${itemsToPrint.length} items)`);
-    return res.json({ status: "printed", itemCount: itemsToPrint.length });
+    return { status: "printed", itemCount: itemsToPrint.length };
 
   } catch (e) {
     console.error("Bar receipt error:", e);
     tempFiles.forEach(file => {
       if (fs.existsSync(file)) fs.unlinkSync(file);
     });
-    if (!res.headersSent) {
-      return res.status(500).json({ status: "error", message: e.message });
-    }
+    throw e;
   }
 };

@@ -1,5 +1,6 @@
 const Order = require("../models/order-model");
 const Table = require("../models/table-model");
+const printerController = require("./printer-controller");
 
 const getOrders = async (req, res) => {
   try {
@@ -54,6 +55,13 @@ const addOrder = async (req, res) => {
       ? await Order.findById(newOrder._id).populate('table')
       : await Order.findById(newOrder._id);
       
+    // Automated bar print (failure-tolerant)
+    try {
+      await printerController.handleBarPrint(populatedOrder, 'ar');
+    } catch (printError) {
+      console.error("Automated bar print failed:", printError.message);
+    }
+
     res.status(201).json(populatedOrder);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -89,6 +97,14 @@ const updateOrder = async (req, res) => {
     if (!updatedOrder) {
       return res.status(404).json({ message: "الطلب غير موجود" });
     }
+
+    // Automated bar print (failure-tolerant)
+    try {
+      await printerController.handleBarPrint(updatedOrder, 'ar', currentOrder.items);
+    } catch (printError) {
+      console.error("Automated bar print failed (update):", printError.message);
+    }
+
     res.json(updatedOrder);
   } catch (error) {
     res.status(400).json({ error: error.message });
