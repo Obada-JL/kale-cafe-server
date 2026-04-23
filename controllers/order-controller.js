@@ -166,17 +166,21 @@ const getOrderLogs = async (req, res) => {
     // Status filter
     if (req.query.status && req.query.status !== 'all') {
       filter.status = req.query.status;
+    } else {
+      filter.status = { $ne: 'cancelled' };
     }
 
     // Date range filter
     if (req.query.from || req.query.to) {
       filter.createdAt = {};
       if (req.query.from) {
-        filter.createdAt.$gte = new Date(req.query.from);
+        const fromDate = new Date(req.query.from);
+        fromDate.setUTCHours(0, 0, 0, 0);
+        filter.createdAt.$gte = fromDate;
       }
       if (req.query.to) {
         const toDate = new Date(req.query.to);
-        toDate.setHours(23, 59, 59, 999);
+        toDate.setUTCHours(23, 59, 59, 999);
         filter.createdAt.$lte = toDate;
       }
     }
@@ -186,10 +190,69 @@ const getOrderLogs = async (req, res) => {
       filter['items.name'] = { $regex: req.query.dish, $options: 'i' };
     }
 
-    const [orders, total] = await Promise.all([
+    const statsGroup = {
+      _id: null,
+      totalAmount: { 
+        $sum: { $cond: [{ $eq: ["$status", "cancelled"] }, 0, { $ifNull: ["$totalAmount", 0] }] } 
+      },
+      totalDiscounts: { 
+        $sum: { $cond: [{ $eq: ["$status", "cancelled"] }, 0, { $add: [{ $ifNull: ["$discount", 0] }, { $ifNull: ["$tax", 0] }] }] } 
+      },
+      totalGross: { 
+        $sum: { $cond: [
+          { $eq: ["$status", "cancelled"] }, 
+          0, 
+          { $ifNull: [
+            "$subtotal", 
+            { $add: [{ $ifNull: ["$totalAmount", 0] }, { $ifNull: ["$discount", 0] }, { $ifNull: ["$tax", 0] }] }
+          ]}
+        ]} 
+      },
+      completedCount: {
+        $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] }
+      }
+    };
+
+    if (req.query.dish) {
+      statsGroup.dishTotalQuantity = {
+        $sum: {
+          $reduce: {
+            input: "$items",
+            initialValue: 0,
+            in: {
+              $add: [
+                "$$value",
+                {
+                  $cond: [
+                    { $gt: [{ $indexOfCP: [{ $toLower: "$$this.name" }, req.query.dish.toLowerCase()] }, -1] },
+                    "$$this.quantity",
+                    0
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      };
+    }
+
+    const [orders, total, stats] = await Promise.all([
       Order.find(filter).populate('table').sort({ createdAt: -1 }).skip(skip).limit(limit),
       Order.countDocuments(filter),
+      Order.aggregate([
+        { $match: filter },
+        { $group: statsGroup }
+      ])
     ]);
+
+    // Ensure resultStats has all required fields with defaults
+    const resultStats = {
+      totalAmount: (stats[0] && stats[0].totalAmount) || 0,
+      totalDiscounts: (stats[0] && stats[0].totalDiscounts) || 0,
+      totalGross: (stats[0] && stats[0].totalGross) || 0,
+      completedCount: (stats[0] && stats[0].completedCount) || 0,
+      dishTotalQuantity: (stats[0] && stats[0].dishTotalQuantity) || 0
+    };
 
     res.json({
       orders,
@@ -199,6 +262,7 @@ const getOrderLogs = async (req, res) => {
         limit,
         pages: Math.ceil(total / limit),
       },
+      stats: resultStats
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

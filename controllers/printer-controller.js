@@ -378,6 +378,11 @@ exports.handleReceiptPrint = async (order, lang = 'ar', cashierName = 'غير م
             );
           }
         }
+        
+        // Item-level notes
+        if (item.notes) {
+          await printText(`  → ${item.notes}`, { size: 22, height: 35, align: isRTL ? "right" : "left" });
+        }
       }
     }
     printer.drawLine();
@@ -396,14 +401,6 @@ exports.handleReceiptPrint = async (order, lang = 'ar', cashierName = 'غير م
       ? `  ${subtotal.toLocaleString()}TL :${lang === 'ar' ? 'المجموع الفرعي' : 'Ara Toplam'}`
       : `${lang === 'ar' ? 'المجموع الفرعي' : 'Ara Toplam'} ${subtotal.toLocaleString()} TL`;
     await printText(subtotalTxt, { align: isRTL ? "right" : "left", size: 28 });
-
-    // Tax line
-    if (order.tax > 0) {
-      const taxTxt = isRTL 
-        ? `  ${order.tax.toLocaleString()}TL :+ ${lang === 'ar' ? 'الضريبة (5%)' : 'KDV (%5)'}`
-        : `+ ${lang === 'ar' ? 'الضريبة (5%)' : 'KDV (%5)'} ${order.tax.toLocaleString()} TL`;
-      await printText(taxTxt, { align: isRTL ? "right" : "left", size: 28 });
-    }
 
     // Discount line
     if (order.discount > 0) {
@@ -588,6 +585,7 @@ exports.handleBarPrint = async (order, lang = 'ar', previousItems = null) => {
 
   const barTranslations = {
     ar: {
+      cafeName: "مطعم و كافيه القلعة",
       barTitle: "طلب بار",
       delivery: "سفري",
       tableLabel: "الطاولة:",
@@ -597,6 +595,7 @@ exports.handleBarPrint = async (order, lang = 'ar', previousItems = null) => {
       editLabel: "** أصناف جديدة **",
     },
     tr: {
+      cafeName: "KALE CAFE & RESTAURANT",
       barTitle: "BAR SİPARİŞ",
       delivery: "Paket",
       tableLabel: "Masa:",
@@ -725,6 +724,41 @@ exports.handleBarPrint = async (order, lang = 'ar', previousItems = null) => {
     // Exit Chinese mode (FS .) if the printer is in it, to avoid misinterpreting binary data
     printer.raw(Buffer.from([0x1c, 0x2e]));
 
+    // Logo
+    try {
+      const baseDir = path.resolve(__dirname, '..'); 
+      const img = await loadImage(path.resolve(baseDir, 'Logo.png'));
+      const maxWidth = 200; 
+      const scale = Math.min(maxWidth / img.width, 1); 
+      const newWidth = img.width * scale;
+      const newHeight = img.height * scale;
+
+      const logoCanvas = createCanvas(500, newHeight + 60); 
+      const logoCtx = logoCanvas.getContext('2d');
+      logoCtx.fillStyle = "white"; 
+      logoCtx.fillRect(0, 0, 500, newHeight + 60);
+      
+      const xOffset = (500 - newWidth) / 2;
+      logoCtx.drawImage(img, xOffset, 0, newWidth, newHeight);
+
+      logoCtx.fillStyle = "black";
+      logoCtx.font = "bold 34px Arial"; 
+      logoCtx.textAlign = "center";
+      logoCtx.fillText(t.cafeName, 250, newHeight + 40);
+
+      const logoPath = path.resolve(`./temp_bar_logo_${Date.now()}.png`);
+      fs.writeFileSync(logoPath, logoCanvas.toBuffer("image/png"));
+      tempFiles.push(logoPath);
+
+      printer.alignCenter();
+      await printer.printImage(logoPath);
+    } catch(err) {
+      console.log("Could not load bar logo:", err.message);
+      await printText(t.cafeName, { size: 44, isBold: true, height: 70, align: "center" });
+    }
+
+    await printSeparator();
+
     // Title
     // await printText(t.barTitle, { align: "center", size: 44, isBold: true, height: 70 });
     // await printSeparator();
@@ -785,6 +819,8 @@ exports.handleBarPrint = async (order, lang = 'ar', previousItems = null) => {
       await printText(`${t.notes} ${order.notes}`, { size: 26, height: 45 });
       await printSeparator();
     }
+
+    await printText("+90 535 506 66 97", { size: 22, align: "center" });
 
     printer.newLine();
     printer.newLine();
