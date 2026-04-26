@@ -30,7 +30,7 @@ const register = async (req, res) => {
             username,
             email,
             password,
-            role: role || 'employee',
+            role: role || 'staff',
             nameTr: nameTr || ''
         });
 
