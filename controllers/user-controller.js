@@ -26,20 +26,15 @@ const register = async (req, res) => {
             });
         }
 
-        // Create new user
         const user = new User({
             username,
             email,
             password,
-            role: role || 'staff',
-            isCashier: req.body.isCashier || false,
+            role: role || 'employee',
             nameTr: nameTr || ''
         });
 
-        if (user.isCashier) {
-            // Unassign other cashiers
-            await User.updateMany({ isCashier: true }, { isCashier: false });
-        }
+
 
         await user.save();
 
@@ -210,7 +205,7 @@ const getUsers = async (req, res) => {
 const updateUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const { username, email, role, isActive, isCashier, nameTr } = req.body;
+        const { username, email, password, role, isActive, nameTr } = req.body;
 
         const user = await User.findById(id);
         if (!user) {
@@ -237,14 +232,7 @@ const updateUser = async (req, res) => {
         if (typeof isActive === 'boolean') user.isActive = isActive;
         if (nameTr !== undefined) user.nameTr = nameTr;
 
-        // Unique cashier logic
-        if (typeof isCashier === 'boolean') {
-            if (isCashier) {
-                // If setting this user as cashier, unassign all other cashiers
-                await User.updateMany({ _id: { $ne: id } }, { isCashier: false });
-            }
-            user.isCashier = isCashier;
-        }
+        if (password) user.password = password;
 
         await user.save();
 

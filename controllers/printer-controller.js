@@ -111,14 +111,8 @@ exports.queuePrint = async (req, res) => {
 
   const t = translations[lang];
 
-  // Fetch cashier
-  const User = require("../models/user-model");
-  const cashier = await User.findOne({ isCashier: true });
-  let cashierName = cashier ? cashier.username : (lang === 'ar' ? 'غير محدد' : 'Belirtilmedi');
-  
-  if (lang === 'tr' && cashier && cashier.nameTr) {
-    cashierName = cashier.nameTr;
-  }
+  // Fetch cashier from order data, or default if missing
+  let cashierName = order.createdBy || (lang === 'ar' ? 'غير محدد' : 'Belirtilmedi');
 
   return await exports.handleReceiptPrint(order, lang, cashierName);
 };
